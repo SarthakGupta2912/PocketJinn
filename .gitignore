@@ -1,0 +1,43 @@
+# Flutter and Dart build output
+build/
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Editor and IDE files
+.idea/
+*.iml
+.vscode/
+
+# Android build files
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# Secrets and signing keys
+.env
+*.env
+*.jks
+*.keystore
+key.properties
+
+# Test screenshots and UI dumps are local only
+shots/*
+!shots/.gitkeep
+
+# Generated Flutter plugin file
+**/GeneratedPluginRegistrant.java
+
+# Downloaded AI models are large, never commit them
+*.task
+*.litertlm
+*.gguf
+*.bin
+vosk-model*/
+assets/models/*
+!assets/models/.gitkeep
