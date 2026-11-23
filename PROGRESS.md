@@ -20,7 +20,7 @@ The current application id is `com.Sarthak.pocket_jinn`.
 | Stage | What it adds | Status |
 | --- | --- | --- |
 | 0 | Audit, theme, responsive helpers, common widgets, home screen | Done, tests passed |
-| 1 | Local LLM brain and JSON tool calls | Not started |
+| 1 | Local LLM brain and JSON tool calls | Done, tests passed |
 | 2 | Real Android tools through Kotlin | Not started |
 | 3 | Offline voice input and wake word | Not started |
 | 4 | Background listening service | Not started |
@@ -30,10 +30,12 @@ The current application id is `com.Sarthak.pocket_jinn`.
 
 ## What exists now
 
-- A Flutter project that already existed in this folder, with a hello world
-  `lib/main.dart` and an empty Kotlin `MainActivity`.
-- The app now has a shared theme (light and dark), responsive helpers, common
+- A Flutter project that already existed in this folder, now with a complete
+  Stage 0 shell and a working Stage 1 offline model.
+- The app has a shared theme (light and dark), responsive helpers, common
   widgets and a real home screen.
+- A pinned FunctionGemma model runs fully on the tablet and calls two app
+  tools: current time and clear recent commands.
 - Android only. The `ios` folder is left untouched.
 
 ## Done in stage 0
@@ -49,14 +51,30 @@ The current application id is `com.Sarthak.pocket_jinn`.
 - Tested on the real tablet in tablet, phone, landscape, light and dark sizes.
   The full table is in `TEST_REPORT_STAGE_0.md`.
 
+## Done in stage 1
+
+- Replaced the discontinued `flutter_gemma` plan with `flutter_edge_ai` and
+  `flutter_edge_ai_litertlm`, after reading their real API and example.
+- Added the pinned FunctionGemma 270M `.litertlm` catalog model, loaded fully
+  on the device, with download progress and automatic loading on later starts.
+- Added the tool base class, registry and two tools: the safe current-time tool
+  and the risky clear-history tool that needs a confirmation dialog.
+- Added the assistant controller, tool-call model, typed command box, brain
+  status card, latest result card and in-memory recent commands card.
+- Added automated tests for the safe tool-call JSON reader.
+- Kept all model calls inside `lib/services/llm_service.dart`.
+- Tested on the real tablet: download, load, safe tool, risky cancel/approve,
+  unknown command, rotation, light/dark, phone width and app restarts. The full
+  table is in `TEST_REPORT_STAGE_1.md`.
+
 ## Next
 
-- Start stage 1: add `flutter_gemma`, the tool call model, the tool registry
-  and a text command box. Before writing code, check the real package version
-  and the real model names on the device.
+- Start stage 2: add real Android tools through Kotlin. Before writing code,
+  check the real permission and intent APIs on the tablet. Do not add the
+  accessibility service until the user approves it.
 
 ## Known issues
 
-- None in stage 0.
 - Real voice, wake word, permissions and Android tools are not built yet.
+- History is in memory only, so a cold start has an empty list.
 - Testing needs the tablet connected over wireless debugging.
