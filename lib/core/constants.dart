@@ -51,6 +51,34 @@ const String howItWorksStepThree =
 /// Text on the microphone button for screen readers.
 const String microphoneButtonLabel = 'Start listening';
 
+/// Text command box hint for the local model stage.
+const String commandFieldHint = 'Type a command for Pocket Jinn';
+
+/// Label for the local model preparation action.
+const String prepareBrainLabel = 'Prepare offline brain';
+
+/// Label for the command submission action.
+const String sendCommandLabel = 'Ask';
+
+/// Text shown while the local model is being downloaded or loaded.
+const String brainPreparingMessage = 'Preparing the offline brain...';
+
+/// Text shown after the local model is ready.
+const String brainReadyMessage = 'Offline brain ready';
+
+/// Text shown before the first model preparation.
+const String brainNotReadyMessage =
+    'Prepare the offline brain to type commands.';
+
+/// Text shown when a local model operation fails.
+const String brainErrorMessage = 'The offline brain could not be prepared.';
+
+/// Title used for the latest assistant result.
+const String latestResultTitle = 'Latest result';
+
+/// Most recent commands kept visible on the home screen.
+const int maxVisibleRecentCommands = 5;
+
 /// Fixed sizes shared by the layout and the common widgets.
 class AppSizes {
   const AppSizes._();

@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_edge_ai: ^2.7.1
+  flutter_edge_ai_litertlm: ^1.21.0
 
 dev_dependencies:
   flutter_test:

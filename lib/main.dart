@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 
 import 'core/app_theme.dart';
 import 'core/constants.dart';
+import 'services/llm_service.dart';
 import 'screens/home_screen.dart';
 
 /// Entry point of the app.
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LlmService.initialize();
   runApp(const PocketJinnApp());
 }
 
