@@ -37,7 +37,7 @@ The current application id is `com.Sarthak.pocket_jinn`.
 - A pinned FunctionGemma model runs fully on the tablet and calls four app
   tools: current time, clear recent commands, call the test contact and send an
   SMS to the test contact.
-- A small offline English speech model turns microphone audio into text. The mic
+- An offline English speech model turns microphone audio into text. The mic
   button now records, shows live status and sends finished transcripts to the
   same brain. Android only. The `ios` folder is left untouched.
 
@@ -93,8 +93,10 @@ The current application id is `com.Sarthak.pocket_jinn`.
 
 - Added `sherpa_onnx`, `record`, `path` and `path_provider` after reading the
   official Flutter example and the installed package APIs.
-- Added `VoiceModelStore`, which downloads the four files of the small English
-  streaming Zipformer model once and keeps them in app-private storage.
+- Added `VoiceModelStore`, which downloads the four files of the offline
+  English streaming Zipformer model once and keeps them in app-private storage.
+- Upgraded to the larger English Zipformer after a direct accuracy comparison:
+  the stored test phrase went from "T TIME IS IT" to "WHAT TIME IS IT".
 - Added `SpeechService`, which captures 16 kHz mono PCM with `record` and decodes
   it with `sherpa_onnx`, with no network after the one-time download.
 - Added `VoiceController` for permission, preparation progress, listening,

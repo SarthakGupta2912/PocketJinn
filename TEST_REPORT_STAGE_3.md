@@ -8,10 +8,11 @@ Build: debug APK built with `flutter build apk --debug` and installed with
 Stage 3 replaces the old "voice input is not ready yet" message with real
 push-to-talk offline speech recognition. The chosen scope is push-to-talk only;
 always-on "Hey Jinn" wake word stays for Stage 4. The app downloads the four
-small English speech-model files once (about 45 MB total), asks for the
+four English speech-model files once (about 73 MB total), asks for the
 microphone permission, then captures 16 kHz mono PCM and decodes it with
 `sherpa_onnx` directly on the tablet. A finished transcript is sent to the same
-FunctionGemma brain used in Stages 1 and 2.
+FunctionGemma brain used in Stages 1 and 2. The final model is the larger
+English streaming Zipformer (about 73 MB), chosen after an accuracy comparison.
 
 The device stayed in dark mode, portrait, with the physical 1600 x 2560 panel and
 the 420 density override, except where a row below says a mode or size was
@@ -24,12 +25,12 @@ changed. Rotation, night mode and display size were restored afterwards.
 | 1 | Install and launch | `adb install -r ...`, `am start -n .../.MainActivity` | App opens, old brain still ready | App opened, "Offline brain ready", no fatal log | PASS | `stage3_home.png` |
 | 2 | Mic permission | Tap the microphone | Android asks to record audio | "Allow Pocket Jinn to record audio?" with While using the app / Only this time / Don't allow | PASS | `stage3_permission.png` |
 | 3 | Permission granted | Tap "While using the app" | Permission recorded by Android | `RECORD_AUDIO` listed as `granted=true` | PASS | - |
-| 4 | One-time model download | Continue after permission | Four files download with visible progress | Four files appeared in app support storage (42,845,182 / 2,092,272 / 259,572 / 5,048 bytes) | PASS | `stage3_download.png` |
+| 4 | One-time model download | Continue after permission | Four files download with visible progress | Four files appeared in app support storage (71,083,163 / 2,092,621 / 259,335 / 5,048 bytes) | PASS | `stage3_download.png` |
 | 5 | Listening state | After download and load | Button turns red, live hint shown | "Listening... tap the microphone to stop." with the red stop icon | PASS | `stage3_final_listen.png` |
 | 6 | Tap to stop | Tap the microphone again | Recording stops, empty speech gives a clear message | "I did not catch that. Please try again." | PASS | `stage3_final_idle.png` |
 | 7 | 15-second safety stop | Start listening with no command and wait | App stops itself instead of recording forever | After about 15 s the mic returned to idle with the no-speech message | PASS | `stage3_timeout.png` |
 | 8 | Live microphone capture | Instrumented debug build during testing | Real audio samples arrive from the mic | 2560-byte PCM chunks arrived about every 80 ms with non-zero peaks | PASS | - |
-| 9 | Offline recognizer correctness | Feed a saved spoken phrase to the recognizer in whole-file and microphone-sized chunks | English words are recognized without a network | "T TIME IS IT" was transcribed from the test phrase both ways | PASS (engine only) | - |
+| 9 | Offline recognizer correctness | Feed a saved spoken phrase to the recognizer in whole-file and microphone-sized chunks | English words are recognized without a network | Final model transcribed the stored phrase as "WHAT TIME IS IT"; the first smaller model only got "T TIME IS IT" | PASS (engine only) | - |
 | 10 | Start/stop repeated three times | Tap, wait, tap, three rounds | No stuck state or crash | Each round showed listening, then the no-speech message; no FATAL log | PASS | `r1.txt`, `r2.txt`, `r3.txt` |
 | 11 | Tablet landscape | `settings put system user_rotation 1` | Column reflows and scrolls | Content reflowed and scrolled, no overflow | PASS | `stage3_landscape.png` |
 | 12 | Light mode | `cmd uimode night no` | Theme stays readable | Correct light colors and status icons | PASS | `stage3_light.png` |
@@ -53,6 +54,11 @@ changed. Rotation, night mode and display size were restored afterwards.
    removed because they raised the noise floor on this device.
 4. All temporary diagnostic hooks used while testing (test WAV playback, chunk
    logging and WAV capture) were removed before the final build.
+5. Accuracy was improved by replacing the 20M-parameter speech model with the
+   larger English streaming Zipformer from June 2023. On the same stored test
+   phrase, the old model produced "T TIME IS IT" and the new one produced
+   "WHAT TIME IS IT". The trade-off is a one-time download of about 73 MB
+   instead of 45 MB.
 
 ## Notes and limits
 

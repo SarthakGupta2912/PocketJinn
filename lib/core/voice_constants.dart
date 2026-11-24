@@ -6,24 +6,30 @@
 const String voiceStopButtonLabel = 'Stop listening';
 
 /// Folder under app support storage that holds the offline voice model.
-const String voiceModelFolderName = 'sherpa-en-20m';
+const String voiceModelFolderName = 'sherpa-en-large';
 
-/// Base URL for the four files of the small English speech model.
+/// Base URL for the four files of the offline English speech model.
 const String voiceModelBaseUrl =
     'https://huggingface.co/csukuangfj/'
-    'sherpa-onnx-streaming-zipformer-en-20M-2023-02-17/resolve/main';
+    'sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main';
 
 /// Streaming Zipformer encoder file name.
-const String voiceEncoderFileName = 'encoder-epoch-99-avg-1.int8.onnx';
+const String voiceEncoderFileName =
+    'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx';
 
 /// Streaming Zipformer decoder file name.
-const String voiceDecoderFileName = 'decoder-epoch-99-avg-1.onnx';
+const String voiceDecoderFileName =
+    'decoder-epoch-99-avg-1-chunk-16-left-128.onnx';
 
 /// Streaming Zipformer joiner file name.
-const String voiceJoinerFileName = 'joiner-epoch-99-avg-1.int8.onnx';
+const String voiceJoinerFileName =
+    'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx';
 
 /// Token table file name for the speech model.
 const String voiceTokensFileName = 'tokens.txt';
+
+/// Model family expected by the native sherpa-onnx recognizer.
+const String voiceModelType = 'zipformer2';
 
 /// Sample rate the streaming speech model expects.
 const int voiceSampleRate = 16000;

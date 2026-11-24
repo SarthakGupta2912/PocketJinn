@@ -41,7 +41,7 @@ class SpeechService {
             joiner: p.join(folder.path, voiceJoinerFileName),
           ),
           tokens: p.join(folder.path, voiceTokensFileName),
-          modelType: 'zipformer',
+          modelType: voiceModelType,
           debug: false,
         ),
       ),
