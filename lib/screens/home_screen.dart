@@ -1,6 +1,6 @@
 // What is this file for?
-// The main Pocket Jinn screen. It connects the assistant controller to the
-// status, command, result and recent-command cards.
+// The main Pocket Jinn screen. It connects the assistant and voice controllers
+// to the status, command, result and recent-command cards.
 
 import 'dart:async';
 
@@ -9,8 +9,8 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../core/constants.dart';
 import '../controllers/assistant_controller.dart';
+import '../controllers/voice_controller.dart';
 import '../widgets/app_scaffold.dart';
-import '../widgets/app_message.dart';
 import '../widgets/app_confirm_dialog.dart';
 import '../widgets/brain_status_card.dart';
 import '../widgets/command_input_card.dart';
@@ -29,19 +29,25 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-/// Owns the assistant controller for the lifetime of the home screen.
+/// Owns the assistant and voice controllers for the home screen lifetime.
 class _HomeScreenState extends State<HomeScreen> {
   late final AssistantController _controller;
+  late final VoiceController _voiceController;
 
   @override
   void initState() {
     super.initState();
     _controller = AssistantController(confirmRiskyAction: _confirmRiskyAction);
+    _voiceController = VoiceController(
+      onTranscript: _controller.ask,
+      canRunCommands: () => _controller.status == AssistantStatus.ready,
+    );
     unawaited(_controller.restoreBrain());
   }
 
   @override
   void dispose() {
+    _voiceController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -50,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _controller,
+      listenable: Listenable.merge([_controller, _voiceController]),
       builder: (context, child) => AppScaffold(
         title: appName,
         body: ResponsiveBody(
@@ -73,7 +79,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: AppSpacing.large),
                 CommandResultCard(result: _controller.latestResult),
                 const SizedBox(height: AppSpacing.large),
-                MicrophoneSection(onPressed: _showVoiceComingSoon),
+                MicrophoneSection(
+                  onPressed: _voiceController.toggleMicrophone,
+                  statusText: _voiceController.message,
+                  transcript: _voiceController.transcript,
+                  isListening: _voiceController.isListening,
+                  isBusy: _voiceController.isBusy,
+                  progress: _voiceController.isDownloading
+                      ? _voiceController.downloadPercent / 100
+                      : null,
+                ),
                 const SizedBox(height: AppSpacing.large),
                 const HowItWorksCard(),
                 const SizedBox(height: AppSpacing.large),
@@ -84,11 +99,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-  }
-
-  /// Tells the user that voice input arrives in a later stage.
-  void _showVoiceComingSoon() {
-    showAppMessage(context, voiceComingSoonMessage);
   }
 
   /// Asks the user before a tool calls, messages or removes history.

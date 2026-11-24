@@ -2,6 +2,8 @@
 // Keeps the text, default values and fixed sizes used across Pocket Jinn in
 // one place, so screens never repeat magic strings or magic numbers.
 
+export 'voice_constants.dart';
+
 /// The name shown on the home screen, app bar and launcher.
 const String appName = 'Pocket Jinn';
 
@@ -29,10 +31,6 @@ const String homeHistoryTitle = 'Recent commands';
 /// Text shown when no commands have been saved yet.
 const String homeHistoryEmptyMessage =
     'Nothing here yet. Your latest commands will appear in this list.';
-
-/// Friendly message used while voice input is still being built.
-const String voiceComingSoonMessage =
-    'Voice input is not ready yet. You can type commands in the next stage.';
 
 /// Title of the card that explains the three steps.
 const String howItWorksTitle = 'How it works';
@@ -153,4 +151,7 @@ class AppSizes {
 
   /// Size of a normal icon such as the history clock.
   static const double mediumIconSize = 24;
+
+  /// Width of the small download progress bar under the microphone.
+  static const double voiceProgressWidth = 220;
 }

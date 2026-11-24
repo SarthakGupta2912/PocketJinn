@@ -12,6 +12,7 @@ class MicrophoneButton extends StatelessWidget {
     super.key,
     required this.onPressed,
     this.isListening = false,
+    this.semanticLabel = microphoneButtonLabel,
   });
 
   /// What happens when the user taps the microphone.
@@ -19,6 +20,9 @@ class MicrophoneButton extends StatelessWidget {
 
   /// When true, the button turns into a stop button with a red color.
   final bool isListening;
+
+  /// Words read by a screen reader for the current button state.
+  final String semanticLabel;
 
   /// Builds the circle using sizes that fit phones and tablets.
   @override
@@ -38,7 +42,7 @@ class MicrophoneButton extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: microphoneButtonLabel,
+      label: semanticLabel,
       child: SizedBox(
         width: buttonSize,
         height: buttonSize,

@@ -22,7 +22,7 @@ The current application id is `com.Sarthak.pocket_jinn`.
 | 0 | Audit, theme, responsive helpers, common widgets, home screen | Done, tests passed |
 | 1 | Local LLM brain and JSON tool calls | Done, tests passed |
 | 2 | Real Android tools through Kotlin | Done, tests passed |
-| 3 | Offline voice input and wake word | Not started |
+| 3 | Offline push-to-talk voice input | Implemented, device tested; wake word moved to Stage 4 |
 | 4 | Background listening service | Not started |
 | 5 | Accessibility actions in other apps | Not started |
 | 6 | History, speech output and polish | Not started |
@@ -37,7 +37,9 @@ The current application id is `com.Sarthak.pocket_jinn`.
 - A pinned FunctionGemma model runs fully on the tablet and calls four app
   tools: current time, clear recent commands, call the test contact and send an
   SMS to the test contact.
-- Android only. The `ios` folder is left untouched.
+- A small offline English speech model turns microphone audio into text. The mic
+  button now records, shows live status and sends finished transcripts to the
+  same brain. Android only. The `ios` folder is left untouched.
 
 ## Done in stage 0
 
@@ -87,17 +89,38 @@ The current application id is `com.Sarthak.pocket_jinn`.
   three-time repeat, rotation, light/dark, phone width and app restarts. The
   full table is in `TEST_REPORT_STAGE_2.md`.
 
+## Done in stage 3
+
+- Added `sherpa_onnx`, `record`, `path` and `path_provider` after reading the
+  official Flutter example and the installed package APIs.
+- Added `VoiceModelStore`, which downloads the four files of the small English
+  streaming Zipformer model once and keeps them in app-private storage.
+- Added `SpeechService`, which captures 16 kHz mono PCM with `record` and decodes
+  it with `sherpa_onnx`, with no network after the one-time download.
+- Added `VoiceController` for permission, preparation progress, listening,
+  live transcript, 15-second safety stop, wake-name stripping and handoff to the
+  assistant controller.
+- Replaced the "voice input is not ready yet" placeholder with the working mic
+  flow and a live status line under the button.
+- Added `RECORD_AUDIO` to the manifest.
+- Tested on the real tablet: permission dialog, model download, listening,
+  tap-to-stop, timeout, three-time repeat, rotation, light/dark, phone width and
+  crash scan. The full table is in `TEST_REPORT_STAGE_3.md`.
+
 ## Next
 
-- Start stage 3: offline voice input and wake word. Ask the user before adding
-  an accessibility service, and confirm microphone accuracy and wake-word
-  behaviour in noise on the device before calling it done.
+- Ask the user to speak a few real commands near the tablet to confirm
+  microphone accuracy, then start stage 4: background listening and the
+  "Hey Jinn" wake word. Ask before adding any accessibility service, and confirm
+  wake-word behaviour in noise on the device before calling it done.
 
 ## Known issues
 
 - The test tablet has no SIM and no mobile network, so a real connected call
   and a delivered SMS could not be verified. Only the permission flow and the
   Android handoff were checked.
-- Real voice and wake word are not built yet.
+- Real voice accuracy still needs user confirmation on the device. The offline
+  recognizer itself was verified with a stored spoken phrase.
+- The wake word is not built yet. Stage 3 is push-to-talk only.
 - History is in memory only, so a cold start has an empty list.
 - Testing needs the tablet connected over wireless debugging.
