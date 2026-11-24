@@ -79,6 +79,38 @@ const String latestResultTitle = 'Latest result';
 /// Most recent commands kept visible on the home screen.
 const int maxVisibleRecentCommands = 5;
 
+/// Android channel shared with MainActivity for real phone actions.
+const String androidToolsChannelName = 'com.Sarthak.pocket_jinn/android_tools';
+
+/// The only contact Pocket Jinn may call or message in stage 2.
+const String testContactName = 'sarthak';
+
+/// The only phone number Pocket Jinn may call or message in stage 2.
+const String testContactNumber = '9023850632';
+
+/// Longest SMS text accepted from the model in stage 2.
+const int maxSmsLength = 480;
+
+/// Shown after the phone accepts a call request.
+const String callStartedMessage = 'Calling sarthak at 9023850632.';
+
+/// Shown when a call request could not start.
+const String callFailedMessage = 'The call could not be started.';
+
+/// Shown after Android accepts an SMS request for sending.
+const String smsHandedOffMessage =
+    'SMS handed to Android for sending to sarthak at 9023850632.';
+
+/// Shown when an SMS request could not be sent.
+const String smsFailedMessage = 'The SMS could not be sent.';
+
+/// Shown when the model asks to send an empty SMS.
+const String smsEmptyMessage = 'Type the SMS text first.';
+
+/// Shown when the model asks for an SMS above the safe length.
+const String smsTooLongMessage =
+    'That SMS is too long. Keep it under $maxSmsLength characters.';
+
 /// Fixed sizes shared by the layout and the common widgets.
 class AppSizes {
   const AppSizes._();

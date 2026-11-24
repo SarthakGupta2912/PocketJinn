@@ -23,6 +23,9 @@ class ClearCommandsTool extends BaseTool {
   String get confirmationMessage => 'Delete all recent commands?';
 
   @override
+  String get confirmationLabel => 'Delete';
+
+  @override
   Map<String, dynamic> get parameters => const {
     'type': 'object',
     'properties': <String, dynamic>{},

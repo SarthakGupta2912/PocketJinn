@@ -1,9 +1,11 @@
 // What is this file for?
-// Holds the simple Stage 1 assistant state and connects the screen to tools.
+// Holds the simple assistant state and connects the screen to the local model
+// and the local tools, including the call and SMS actions.
 
 import 'package:flutter/foundation.dart';
 
 import '../models/tool_call.dart';
+import '../services/android_tool_service.dart';
 import '../services/llm_service.dart';
 import '../tools/tool_registry.dart';
 
@@ -24,12 +26,16 @@ class AssistantHistoryItem {
 /// Coordinates model preparation, safe tool execution and screen updates.
 class AssistantController extends ChangeNotifier {
   AssistantController({required this.confirmRiskyAction}) {
-    _registry = ToolRegistry(clearCommands: _clearCommands);
+    _registry = ToolRegistry(
+      clearCommands: _clearCommands,
+      androidTools: const AndroidToolService(),
+    );
     _llmService = LlmService(tools: _registry.tools);
   }
 
-  /// Asks the screen to approve a risky action.
-  final Future<bool> Function(String message) confirmRiskyAction;
+  /// Asks the screen to approve a risky action and its button label.
+  final Future<bool> Function(String message, String confirmLabel)
+  confirmRiskyAction;
   late final ToolRegistry _registry;
   late final LlmService _llmService;
   AssistantStatus status = AssistantStatus.notReady;
@@ -120,7 +126,11 @@ class AssistantController extends ChangeNotifier {
     if (tool == null) {
       return const {'status': 'error', 'error': 'Unknown tool.'};
     }
-    if (tool.isRisky && !await confirmRiskyAction(tool.confirmationMessage)) {
+    if (tool.isRisky &&
+        !await confirmRiskyAction(
+          tool.confirmationMessageFor(call.arguments),
+          tool.confirmationLabel,
+        )) {
       return const {'status': 'cancelled', 'message': 'The user declined.'};
     }
     return _registry.execute(call);

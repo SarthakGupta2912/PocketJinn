@@ -18,6 +18,14 @@ abstract class BaseTool {
   /// Text shown in the confirmation dialog for risky actions.
   String get confirmationMessage => 'Allow Pocket Jinn to run $name?';
 
+  /// Text on the confirmation button for risky actions.
+  String get confirmationLabel => 'Continue';
+
+  /// Confirmation text that may include the arguments being approved.
+  String confirmationMessageFor(Map<String, dynamic> arguments) {
+    return confirmationMessage;
+  }
+
   /// Runs the action and returns a JSON-compatible result.
   Future<Map<String, dynamic>> run(Map<String, dynamic> arguments);
 }

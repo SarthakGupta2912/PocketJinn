@@ -91,13 +91,13 @@ class _HomeScreenState extends State<HomeScreen> {
     showAppMessage(context, voiceComingSoonMessage);
   }
 
-  /// Asks the user before a tool removes in-app command history.
-  Future<bool> _confirmRiskyAction(String message) {
+  /// Asks the user before a tool calls, messages or removes history.
+  Future<bool> _confirmRiskyAction(String message, String confirmLabel) {
     return AppConfirmDialog.show(
       context: context,
       title: 'Confirm action',
       message: message,
-      confirmLabel: 'Delete',
+      confirmLabel: confirmLabel,
     );
   }
 }

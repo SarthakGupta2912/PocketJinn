@@ -2,17 +2,24 @@
 // Keeps all available tools in one simple registry for the model and app.
 
 import '../models/tool_call.dart';
+import '../services/android_tool_service.dart';
 import 'base_tool.dart';
+import 'call_test_contact_tool.dart';
 import 'clear_commands_tool.dart';
 import 'current_time_tool.dart';
+import 'send_sms_tool.dart';
 
 /// Stores tools, creates declarations and safely dispatches calls.
 class ToolRegistry {
-  ToolRegistry({required void Function() clearCommands})
-    : _tools = [
-        CurrentTimeTool(),
-        ClearCommandsTool(clearCommands: clearCommands),
-      ];
+  ToolRegistry({
+    required void Function() clearCommands,
+    required AndroidToolService androidTools,
+  }) : _tools = [
+         CurrentTimeTool(),
+         ClearCommandsTool(clearCommands: clearCommands),
+         CallTestContactTool(androidTools: androidTools),
+         SendSmsTool(androidTools: androidTools),
+       ];
 
   final List<BaseTool> _tools;
 

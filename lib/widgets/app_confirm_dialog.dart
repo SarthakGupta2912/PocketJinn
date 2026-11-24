@@ -24,6 +24,7 @@ class AppConfirmDialog {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
+          scrollable: true,
           title: AppText(title, role: AppTextRole.title),
           content: AppText(message),
           actionsPadding: const EdgeInsets.all(AppSpacing.medium),
