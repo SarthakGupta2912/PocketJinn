@@ -21,7 +21,7 @@ The current application id is `com.Sarthak.pocket_jinn`.
 | --- | --- | --- |
 | 0 | Audit, theme, responsive helpers, common widgets, home screen | Done, tests passed |
 | 1 | Local LLM brain and JSON tool calls | Done, tests passed |
-| 2 | Real Android tools through Kotlin | Not started |
+| 2 | Real Android tools through Kotlin | Done, tests passed |
 | 3 | Offline voice input and wake word | Not started |
 | 4 | Background listening service | Not started |
 | 5 | Accessibility actions in other apps | Not started |
@@ -34,8 +34,9 @@ The current application id is `com.Sarthak.pocket_jinn`.
   Stage 0 shell and a working Stage 1 offline model.
 - The app has a shared theme (light and dark), responsive helpers, common
   widgets and a real home screen.
-- A pinned FunctionGemma model runs fully on the tablet and calls two app
-  tools: current time and clear recent commands.
+- A pinned FunctionGemma model runs fully on the tablet and calls four app
+  tools: current time, clear recent commands, call the test contact and send an
+  SMS to the test contact.
 - Android only. The `ios` folder is left untouched.
 
 ## Done in stage 0
@@ -67,14 +68,36 @@ The current application id is `com.Sarthak.pocket_jinn`.
   unknown command, rotation, light/dark, phone width and app restarts. The full
   table is in `TEST_REPORT_STAGE_1.md`.
 
+## Done in stage 2
+
+- Added one Kotlin method channel in `MainActivity.kt` for the call and SMS
+  actions, with runtime `CALL_PHONE` and `SEND_SMS` permission handling.
+- Locked both actions to the one approved test contact, sarthak at 9023850632.
+  The number is fixed in Kotlin, and the Dart tool schemas take no recipient,
+  so the model cannot choose anyone else.
+- Added `AndroidToolService`, `CallTestContactTool` and `SendSmsTool`, and
+  registered them next to the Stage 1 tools.
+- Extended the shared confirmation dialog with a per-tool confirm label and a
+  scrollable body, so `Call`, `Send` and `Delete` read correctly and long SMS
+  previews do not overflow.
+- Added `CALL_PHONE`, `SEND_SMS` and an optional telephony feature to the
+  manifest.
+- Tested on the real tablet: call and SMS confirmation, cancel paths, Android
+  permission boxes, the call and SMS handoff to Android, safe-tool regression,
+  three-time repeat, rotation, light/dark, phone width and app restarts. The
+  full table is in `TEST_REPORT_STAGE_2.md`.
+
 ## Next
 
-- Start stage 2: add real Android tools through Kotlin. Before writing code,
-  check the real permission and intent APIs on the tablet. Do not add the
-  accessibility service until the user approves it.
+- Start stage 3: offline voice input and wake word. Ask the user before adding
+  an accessibility service, and confirm microphone accuracy and wake-word
+  behaviour in noise on the device before calling it done.
 
 ## Known issues
 
-- Real voice, wake word, permissions and Android tools are not built yet.
+- The test tablet has no SIM and no mobile network, so a real connected call
+  and a delivered SMS could not be verified. Only the permission flow and the
+  Android handoff were checked.
+- Real voice and wake word are not built yet.
 - History is in memory only, so a cold start has an empty list.
 - Testing needs the tablet connected over wireless debugging.
