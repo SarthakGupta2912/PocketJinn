@@ -4,6 +4,7 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../models/contact_candidate.dart';
 import '../models/tool_call.dart';
 import '../services/android_tool_service.dart';
 import '../services/llm_service.dart';
@@ -77,9 +78,14 @@ class AssistantController extends ChangeNotifier {
   }
 
   /// Sends one typed command to FunctionGemma and runs its requested tool.
-  Future<void> ask(String command) async {
+  Future<void> ask(
+    String command, {
+    List<ContactCandidate> candidates = const [],
+    bool confirmNames = false,
+  }) async {
     final trimmedCommand = command.trim();
     if (trimmedCommand.isEmpty || status != AssistantStatus.ready) return;
+    if (confirmNames && !await _confirmContactGuesses(candidates)) return;
     status = AssistantStatus.thinking;
     latestResult = '';
     _notify();
@@ -87,6 +93,7 @@ class AssistantController extends ChangeNotifier {
       final answer = await _llmService.ask(
         command: trimmedCommand,
         onToolCall: _runToolCall,
+        extraContext: _contactContext(candidates),
       );
       latestResult = _displayAnswer(answer);
       history.insert(
@@ -134,6 +141,28 @@ class AssistantController extends ChangeNotifier {
       return const {'status': 'cancelled', 'message': 'The user declined.'};
     }
     return _registry.execute(call);
+  }
+
+  /// Asks the user before acting on a weak or close name match.
+  Future<bool> _confirmContactGuesses(List<ContactCandidate> guesses) async {
+    if (guesses.isEmpty) return true;
+    final names = guesses
+        .map(
+          (guess) =>
+              '${guess.contact.name} (${guess.score.toStringAsFixed(2)})',
+        )
+        .join(', ');
+    return confirmRiskyAction(
+      'Did you mean one of these contacts? $names',
+      'Yes',
+    );
+  }
+
+  /// Adds the name guesses to the model prompt without changing the command.
+  String _contactContext(List<ContactCandidate> guesses) {
+    if (guesses.isEmpty) return '';
+    final names = guesses.map((guess) => guess.contact.name).join(', ');
+    return 'Possible contacts heard: $names. Use only these names.';
   }
 
   /// Chooses useful user-facing text after a tool loop completes.

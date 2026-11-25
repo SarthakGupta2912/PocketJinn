@@ -1,35 +1,62 @@
 // What is this file for?
-// Holds the simple voice state for the home screen: preparing, listening,
-// finishing, and sending the final transcript to the assistant.
+// Holds the simple voice state for the home screen and Settings: preparing,
+// listening, finishing, engine choice, language hint and name teaching.
 
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/contact_data.dart';
 import '../core/constants.dart';
+import '../models/contact.dart';
+import '../models/contact_candidate.dart';
+import '../services/name_alias_store.dart';
+import '../services/name_matcher.dart';
 import '../services/speech_service.dart';
 import '../services/voice_model_store.dart';
+
+part 'voice_controller_teaching.dart';
+part 'voice_controller_helpers.dart';
 
 /// The voice states shown by the microphone section.
 enum VoiceStatus { idle, preparing, listening, finishing }
 
-/// Downloads, runs and stops the offline speech recognizer.
+/// Downloads, runs and stops the selected offline speech engine.
 class VoiceController extends ChangeNotifier {
-  VoiceController({required this.onTranscript, required this.canRunCommands});
+  VoiceController({required this.onTranscript, required this.canRunCommands})
+    : _matcher = NameMatcher(contacts: knownContacts, aliasStore: _aliasStore) {
+    _engines = {
+      sherpaEngineName: SherpaSpeechEngine(),
+      androidEngineName: AndroidSpeechEngine(languageCode: ''),
+    };
+    _speech = SpeechService(initialEngine: _engines[sherpaEngineName]!);
+  }
 
-  /// Sends a finished transcript to the assistant controller.
-  final Future<void> Function(String command) onTranscript;
+  /// The alias store used by the matcher and the teaching flow.
+  static final NameAliasStore _aliasStore = NameAliasStore();
+  final VoiceModelStore _modelStore = VoiceModelStore();
+
+  /// Sends a finished transcript and its contact guesses to the assistant.
+  final Future<void> Function(String command, List<ContactCandidate> candidates)
+  onTranscript;
 
   /// Tells whether the offline brain is ready to understand a command.
   final bool Function() canRunCommands;
 
-  final VoiceModelStore _modelStore = VoiceModelStore();
-  final SpeechService _speechService = SpeechService();
+  late final Map<String, SpeechEngine> _engines;
+  late final SpeechService _speech;
+  late final NameMatcher _matcher;
   VoiceStatus status = VoiceStatus.idle;
   String message = homeMicrophoneHint;
   String transcript = '';
   int downloadPercent = 0;
   bool isDownloading = false;
+  String selectedEngine = sherpaEngineName;
+  String selectedLanguage = 'Auto';
+  List<ContactCandidate> candidates = <ContactCandidate>[];
+  Contact? teachingContact;
+  int teachingSample = 0;
+  final List<String> _taughtNames = <String>[];
   Timer? _maximumListenTimer;
   bool _isDisposed = false;
 
@@ -50,35 +77,50 @@ class VoiceController extends ChangeNotifier {
     await _startListening();
   }
 
-  /// Stops any running voice work when the home screen is removed.
+  /// Changes the engine and forgets the loaded model.
+  Future<void> selectEngine(String engineName) async {
+    if (!_engines.containsKey(engineName) || isBusy) return;
+    selectedEngine = engineName;
+    _speech.selectEngine(_engines[engineName]!);
+    message = 'Selected $engineName';
+    _notify();
+  }
+
+  /// Changes the language hint shown in Settings and passed to Android.
+  Future<void> selectLanguage(String language) async {
+    selectedLanguage = language;
+    final code = _languageCode(language);
+    final engine = _engines[androidEngineName];
+    if (engine is AndroidSpeechEngine) {
+      _engines[androidEngineName] = AndroidSpeechEngine(languageCode: code);
+      if (selectedEngine == androidEngineName) {
+        _speech.selectEngine(_engines[androidEngineName]!);
+      }
+    }
+    message = 'Language: $language. The model still auto-detects.';
+    _notify();
+  }
+
+  /// Releases engines when the home screen is removed.
   @override
   void dispose() {
     _isDisposed = true;
     _maximumListenTimer?.cancel();
-    unawaited(_speechService.dispose());
+    for (final engine in _engines.values) {
+      unawaited(engine.dispose());
+    }
     super.dispose();
   }
 
-  /// Checks permission, downloads the model if needed, then records.
+  /// Prepares the selected engine, then starts recording.
   Future<void> _startListening() async {
-    transcript = '';
     status = VoiceStatus.preparing;
-    message = voicePreparingMessage;
     downloadPercent = 0;
     isDownloading = false;
     _notify();
     try {
-      if (!await _speechService.requestMicrophonePermission()) {
-        status = VoiceStatus.idle;
-        message = voicePermissionDeniedMessage;
-        _notify();
-        return;
-      }
-      await _downloadModelWhenMissing();
-      await _speechService.startListening(
-        onPartialText: _showPartialText,
-        onRecordingError: _handleSpeechEnd,
-      );
+      await _prepareEngine();
+      await _speech.startListening(onSpeechEnd: _handleSpeechEnd);
       status = VoiceStatus.listening;
       message = voiceListeningHint;
       _maximumListenTimer = Timer(voiceMaxListeningDuration, _handleSpeechEnd);
@@ -89,18 +131,23 @@ class VoiceController extends ChangeNotifier {
     _notify();
   }
 
-  /// Downloads the four model files once and keeps the progress message fresh.
-  Future<void> _downloadModelWhenMissing() async {
-    if (await _modelStore.isInstalled()) return;
-    isDownloading = true;
-    _notify();
-    await _modelStore.download(onProgress: _showDownloadProgress);
-    isDownloading = false;
+  /// Downloads once, then loads the engine with name hints.
+  Future<void> _prepareEngine() async {
+    if (!await _speech.isAvailable()) {
+      throw StateError('This speech engine is not available.');
+    }
     message = voicePreparingMessage;
     _notify();
+    if (selectedEngine == sherpaEngineName &&
+        !await _modelStore.isInstalled()) {
+      isDownloading = true;
+      await _speech.prepare(onProgress: _showDownloadProgress);
+      isDownloading = false;
+    }
+    await _speech.initialize(hotwords: await _matcher.allNames());
   }
 
-  /// Stops the microphone and passes a non-empty transcript to the assistant.
+  /// Finishes recording, matches names and hands the text to the assistant.
   Future<void> _finishListening() async {
     if (status != VoiceStatus.listening) return;
     status = VoiceStatus.finishing;
@@ -110,67 +157,37 @@ class VoiceController extends ChangeNotifier {
 
     String heardText;
     try {
-      heardText = await _speechService.stopListening();
+      heardText = await _speech.stopAndTranscribe();
     } on Object {
       heardText = '';
     }
-    transcript = _removeWakeName(heardText);
+    final transcript = _removeWakeName(heardText);
+    this.transcript = transcript;
     status = VoiceStatus.idle;
-
+    if (teachingContact != null) {
+      await _saveTeachingSample(transcript);
+      return;
+    }
     if (transcript.isEmpty) {
       message = voiceNoSpeechMessage;
       _notify();
       return;
     }
+    candidates = await _matcher.match(transcript);
+    message = candidates.isEmpty
+        ? homeMicrophoneHint
+        : 'Heard: ${candidates.first.matchedName}';
+    _notify();
     if (!canRunCommands()) {
       message = voiceBrainNotReadyMessage;
       _notify();
       return;
     }
-    message = homeMicrophoneHint;
-    _notify();
-    await onTranscript(transcript);
-  }
-
-  /// Stops once when the recognizer hears the end of a spoken sentence.
-  void _handleSpeechEnd() {
-    if (status != VoiceStatus.listening) return;
-    unawaited(_finishListening());
-  }
-
-  /// Shows live words without rebuilding for the same text twice.
-  void _showPartialText(String text) {
-    if (text == transcript) return;
-    transcript = text;
-    _notify();
-  }
-
-  /// Updates the download message only when the whole percentage changes.
-  void _showDownloadProgress(int percent) {
-    if (percent == downloadPercent) return;
-    downloadPercent = percent;
-    message = '$voiceDownloadingMessage $percent%';
-    _notify();
-  }
-
-  /// Drops a leading "Hey Jinn" or "Jinn" so the model sees the command alone.
-  String _removeWakeName(String text) {
-    var cleaned = text.trim();
-    final lowerText = cleaned.toLowerCase();
-    for (final wakeName in _wakeNames) {
-      if (!lowerText.startsWith(wakeName)) continue;
-      cleaned = cleaned.substring(wakeName.length).trim();
-      cleaned = cleaned.replaceFirst(RegExp(r'^[,.\s]+'), '');
-      break;
-    }
-    return cleaned.trim();
+    await onTranscript(transcript, candidates);
   }
 
   /// Avoids notifying a home screen that has already been removed.
   void _notify() {
     if (!_isDisposed) notifyListeners();
   }
-
-  /// Wake names that may be spoken before the real command.
-  static const List<String> _wakeNames = ['hey jinn', 'hi jinn', 'jinn'];
 }

@@ -1,10 +1,12 @@
 // What is this file for?
-// Captures microphone audio and turns it into text with the offline
-// sherpa-onnx speech model, so Pocket Jinn can understand spoken commands.
+// Defines the one speech engine interface used by the app and the small
+// facade that picks the engine chosen in Settings. All engine code lives in
+// this folder so a speech model can be swapped without touching the screens.
 
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:record/record.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
@@ -12,149 +14,72 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import '../core/constants.dart';
 import 'voice_model_store.dart';
 
-/// Runs the streaming English recognizer on live microphone audio.
+part 'speech_sherpa_engine.dart';
+part 'speech_android_engine.dart';
+
+/// One way of turning speech into text, chosen in Settings.
+abstract class SpeechEngine {
+  /// Name shown in Settings.
+  String get displayName;
+
+  /// True when this engine can run on the current device.
+  Future<bool> isAvailable();
+
+  /// Downloads its model once and reports progress from 0 to 100.
+  Future<void> prepare({required void Function(int) onProgress});
+
+  /// Loads the model. Names are passed as hints to help recognition.
+  Future<void> initialize({List<String> hotwords = const []});
+
+  /// Starts listening. The callback fires when the user stops talking.
+  Future<void> startListening({required void Function() onSpeechEnd});
+
+  /// Stops listening and returns the recognised words.
+  Future<String> stopAndTranscribe();
+
+  /// Transcribes a saved WAV file. Used by the debug command broadcast.
+  Future<String> transcribeFile(String path);
+
+  /// Releases native resources.
+  Future<void> dispose();
+}
+
+/// Holds the selected engine and passes calls through to it.
 class SpeechService {
-  sherpa.OnlineRecognizer? _recognizer;
-  AudioRecorder? _recorder;
-  sherpa.OnlineStream? _stream;
-  StreamSubscription<Uint8List>? _audioSubscription;
-  bool _areBindingsLoaded = false;
+  SpeechService({required SpeechEngine initialEngine})
+    : _engine = initialEngine;
 
-  /// Loads the native speech library once, without needing model files.
-  Future<void> _loadBindings() async {
-    if (_areBindingsLoaded) return;
-    await sherpa.initBindingsAsync();
-    _areBindingsLoaded = true;
+  SpeechEngine _engine;
+
+  /// The engine currently in use.
+  SpeechEngine get engine => _engine;
+
+  /// Changes the engine. The caller must dispose the old one.
+  void selectEngine(SpeechEngine newEngine) {
+    _engine = newEngine;
   }
 
-  /// Creates the recognizer only after the four model files are downloaded.
-  Future<void> _ensureRecognizer() async {
-    if (_recognizer != null) return;
-    await _loadBindings();
-    final folder = await voiceModelDirectory();
-    _recognizer = sherpa.OnlineRecognizer(
-      sherpa.OnlineRecognizerConfig(
-        model: sherpa.OnlineModelConfig(
-          transducer: sherpa.OnlineTransducerModelConfig(
-            encoder: p.join(folder.path, voiceEncoderFileName),
-            decoder: p.join(folder.path, voiceDecoderFileName),
-            joiner: p.join(folder.path, voiceJoinerFileName),
-          ),
-          tokens: p.join(folder.path, voiceTokensFileName),
-          modelType: voiceModelType,
-          debug: false,
-        ),
-      ),
-    );
-  }
+  /// True when the selected engine can run here.
+  Future<bool> isAvailable() => _engine.isAvailable();
 
-  /// Asks Android for the microphone permission, showing the dialog if needed.
-  Future<bool> requestMicrophonePermission() async {
-    _recorder ??= AudioRecorder();
-    return _recorder!.hasPermission();
-  }
+  /// Downloads the selected engine's model once.
+  Future<void> prepare({required void Function(int) onProgress}) =>
+      _engine.prepare(onProgress: onProgress);
 
-  /// Starts listening and reports live words plus unexpected recording ends.
-  Future<void> startListening({
-    required void Function(String) onPartialText,
-    required void Function() onRecordingError,
-  }) async {
-    await _ensureRecognizer();
-    final recognizer = _recognizer;
-    if (recognizer == null) throw StateError('Speech is not ready.');
-    _recorder ??= AudioRecorder();
+  /// Loads the selected engine with optional name hints.
+  Future<void> initialize({List<String> hotwords = const []}) =>
+      _engine.initialize(hotwords: hotwords);
 
-    final stream = recognizer.createStream();
-    _stream = stream;
-    try {
-      final audioStream = await _recorder!.startStream(
-        const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: voiceSampleRate,
-          numChannels: 1,
-        ),
-      );
-      _audioSubscription = audioStream.listen(
-        (bytes) => _handleAudioChunk(stream, bytes, onPartialText),
-        onError: (Object error) => onRecordingError(),
-      );
-    } on Object {
-      _stream = null;
-      stream.free();
-      rethrow;
-    }
-  }
+  /// Starts recording through the selected engine.
+  Future<void> startListening({required void Function() onSpeechEnd}) =>
+      _engine.startListening(onSpeechEnd: onSpeechEnd);
 
-  /// Stops the microphone and returns the final transcript.
-  Future<String> stopListening() async {
-    final stream = _stream;
-    _stream = null;
-    await _audioSubscription?.cancel();
-    _audioSubscription = null;
-    try {
-      await _recorder?.stop();
-    } on Object {
-      // Android may already have stopped the recorder; there is nothing to do.
-    }
-    final recognizer = _recognizer;
-    if (recognizer == null || stream == null) return '';
-    try {
-      stream.inputFinished();
-      _decodeAvailable(recognizer, stream);
-      return recognizer.getResult(stream).text.trim();
-    } finally {
-      recognizer.reset(stream);
-      stream.free();
-    }
-  }
+  /// Stops recording and returns the transcript.
+  Future<String> stopAndTranscribe() => _engine.stopAndTranscribe();
 
-  /// Releases the recorder, stream and recognizer when the screen closes.
-  Future<void> dispose() async {
-    await _audioSubscription?.cancel();
-    _audioSubscription = null;
-    await _recorder?.dispose();
-    _recorder = null;
-    _stream?.free();
-    _stream = null;
-    _recognizer?.free();
-    _recognizer = null;
-  }
+  /// Transcribes a saved WAV file for the debug broadcast.
+  Future<String> transcribeFile(String path) => _engine.transcribeFile(path);
 
-  /// Feeds one microphone chunk to the recognizer and decodes ready audio.
-  void _handleAudioChunk(
-    sherpa.OnlineStream stream,
-    Uint8List bytes,
-    void Function(String) onPartialText,
-  ) {
-    final recognizer = _recognizer;
-    if (recognizer == null || _stream != stream) return;
-    stream.acceptWaveform(
-      samples: _toFloatSamples(bytes),
-      sampleRate: voiceSampleRate,
-    );
-    _decodeAvailable(recognizer, stream);
-    final text = recognizer.getResult(stream).text.trim();
-    if (text.isNotEmpty) onPartialText(text);
-  }
-
-  /// Decodes every chunk of audio that the recognizer has buffered.
-  void _decodeAvailable(
-    sherpa.OnlineRecognizer recognizer,
-    sherpa.OnlineStream stream,
-  ) {
-    while (recognizer.isReady(stream)) {
-      recognizer.decode(stream);
-    }
-  }
-
-  /// Converts 16-bit little-endian microphone bytes into model samples.
-  Float32List _toFloatSamples(Uint8List bytes) {
-    final sampleCount = bytes.length ~/ 2;
-    final samples = Float32List(sampleCount);
-    final data = ByteData.sublistView(bytes);
-    for (var index = 0; index < sampleCount; index++) {
-      samples[index] = data.getInt16(index * 2, Endian.little) / 32768.0;
-    }
-    return samples;
-  }
+  /// Releases the selected engine.
+  Future<void> dispose() => _engine.dispose();
 }

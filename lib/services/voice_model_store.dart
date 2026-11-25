@@ -1,21 +1,13 @@
 // What is this file for?
-// Downloads and stores the four small files of the offline English speech
-// model, so speech recognition never needs the internet after one download.
+// Downloads and stores the Qwen3-ASR speech model and the Silero VAD model, so
+// speech recognition works without the internet after the first download.
 
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../core/constants.dart';
-
-/// The four model files in download order.
-const List<String> voiceModelFileNames = [
-  voiceEncoderFileName,
-  voiceDecoderFileName,
-  voiceJoinerFileName,
-  voiceTokensFileName,
-];
+import '../core/voice_constants.dart';
 
 /// Returns the private app folder that holds the speech model files.
 Future<Directory> voiceModelDirectory() async {
@@ -29,11 +21,14 @@ Future<Directory> voiceModelDirectory() async {
 
 /// Checks, downloads and keeps the offline speech model files.
 class VoiceModelStore {
-  /// True when all four files already exist with some content.
+  /// All files in download order, with the small VAD model last.
+  List<String> get fileNames => [...voiceModelFileNames, voiceVadFileName];
+
+  /// True when every model file already exists with some content.
   Future<bool> isInstalled() async {
     final folder = await voiceModelDirectory();
-    for (final fileName in voiceModelFileNames) {
-      final file = File(p.join(folder.path, fileName));
+    for (final name in fileNames) {
+      final file = File(p.join(folder.path, name));
       if (!await file.exists()) return false;
       if (await file.length() == 0) return false;
     }
@@ -45,11 +40,11 @@ class VoiceModelStore {
     final folder = await voiceModelDirectory();
     final client = HttpClient();
     try {
-      for (var index = 0; index < voiceModelFileNames.length; index++) {
+      for (var index = 0; index < fileNames.length; index++) {
         await _downloadOneFile(
           client: client,
           folder: folder,
-          fileName: voiceModelFileNames[index],
+          fileName: fileNames[index],
           index: index,
           onProgress: onProgress,
         );
@@ -69,18 +64,17 @@ class VoiceModelStore {
     required void Function(int) onProgress,
   }) async {
     final target = File(p.join(folder.path, fileName));
-    final fileCount = voiceModelFileNames.length;
+    final fileCount = fileNames.length;
     if (await target.exists() && await target.length() > 0) {
       onProgress(((index + 1) * 100) ~/ fileCount);
       return;
     }
 
+    await target.parent.create(recursive: true);
     final partial = File('${target.path}.part');
     if (await partial.exists()) await partial.delete();
 
-    final request = await client.getUrl(
-      Uri.parse('$voiceModelBaseUrl/$fileName'),
-    );
+    final request = await client.getUrl(Uri.parse(_urlFor(fileName)));
     final response = await request.close();
     if (response.statusCode != HttpStatus.ok) {
       await partial.delete();
@@ -107,13 +101,19 @@ class VoiceModelStore {
     await partial.rename(target.path);
   }
 
+  /// Picks the right verified URL for a model file.
+  String _urlFor(String fileName) {
+    if (fileName == voiceVadFileName) return voiceVadUrl;
+    return '$voiceModelBaseUrl/$fileName';
+  }
+
   /// Converts one file's progress into overall progress across all files.
   void _reportFileProgress({
     required int index,
     required double fraction,
     required void Function(int) onProgress,
   }) {
-    final overall = (index + fraction) * 100 / voiceModelFileNames.length;
+    final overall = (index + fraction) * 100 / fileNames.length;
     onProgress(overall.round());
   }
 }

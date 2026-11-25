@@ -23,6 +23,7 @@ The current application id is `com.Sarthak.pocket_jinn`.
 | 1 | Local LLM brain and JSON tool calls | Done, tests passed |
 | 2 | Real Android tools through Kotlin | Done, tests passed |
 | 3 | Offline push-to-talk voice input | Implemented, device tested; wake word moved to Stage 4 |
+| 3B | Multilingual speech engines and Indian name matching | Implemented, file/name tests done; user voice tests pending |
 | 4 | Background listening service | Not started |
 | 5 | Accessibility actions in other apps | Not started |
 | 6 | History, speech output and polish | Not started |
@@ -109,10 +110,33 @@ The current application id is `com.Sarthak.pocket_jinn`.
   tap-to-stop, timeout, three-time repeat, rotation, light/dark, phone width and
   crash scan. The full table is in `TEST_REPORT_STAGE_3.md`.
 
+## Done in stage 3B
+
+- Replaced the single speech service with a `SpeechEngine` interface and two
+  implementations, `SherpaSpeechEngine` and `AndroidSpeechEngine`, all kept in
+  `lib/services/speech_service.dart` and its part files.
+- Verified the real `sherpa_onnx` 2.0.3 pub.dev package and the Qwen3-ASR 0.6B
+  int8 model docs and file list before downloading anything.
+- Downloaded the verified Qwen3-ASR files and Silero VAD once with a progress
+  bar; they stay in app-private storage, outside git.
+- Added Silero VAD end-of-speech detection so recording can stop when the user
+  stops talking.
+- Added a Settings screen for engine choice, language hint and "Teach a name",
+  plus a contact starter list ready for the user's Indian test contacts.
+- Added `NameMatcher`: Android ICU transliteration, a simple sound key, edit
+  distance, taught aliases checked first, and the top three scored guesses.
+- Passed the name guesses to the LLM prompt and added an extra dialog when the
+  best match is weak or two guesses are close.
+- Added the `DEBUG_COMMAND` audio path, text and name hooks for adb tests.
+- Tested on the tablet: model download, settings, pushed English WAV through the
+  real engine, Devanagari and misspelled name matching, load/decode timings and
+  RAM. The full table is in `TEST_REPORT_STAGE_3B.md`.
+
 ## Next
 
-- Ask the user to speak a few real commands near the tablet to confirm
-  microphone accuracy, then start stage 4: background listening and the
+- Ask the user to connect the tablet again and send the Indian contact list plus
+  Hindi/English WAV files. Complete the NOT VERIFIED rows in
+  `TEST_REPORT_STAGE_3B.md`, then start stage 4: background listening and the
   "Hey Jinn" wake word. Ask before adding any accessibility service, and confirm
   wake-word behaviour in noise on the device before calling it done.
 
@@ -121,8 +145,12 @@ The current application id is `com.Sarthak.pocket_jinn`.
 - The test tablet has no SIM and no mobile network, so a real connected call
   and a delivered SMS could not be verified. Only the permission flow and the
   Android handoff were checked.
-- Real voice accuracy still needs user confirmation on the device. The offline
-  recognizer itself was verified with a stored spoken phrase.
-- The wake word is not built yet. Stage 3 is push-to-talk only.
+- Real voice accuracy for Stage 3B is still unverified. The user needs to speak
+  Hindi, English and Indian names on the tablet.
+- The wake word is not built yet. Stage 3 and 3B are push-to-talk only.
+- The Qwen3-ASR model uses about 982 MB of app storage and about 3 GB RAM after
+  loading; an 18-second clip took about 25 seconds to decode on this tablet.
+- The Android offline speech engine needs offline language data installed on
+  the device; it is not installed on the test tablet.
 - History is in memory only, so a cold start has an empty list.
 - Testing needs the tablet connected over wireless debugging.

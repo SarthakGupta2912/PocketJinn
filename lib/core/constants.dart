@@ -4,6 +4,8 @@
 
 export 'voice_constants.dart';
 
+export 'settings_constants.dart';
+
 /// The name shown on the home screen, app bar and launcher.
 const String appName = 'Pocket Jinn';
 
@@ -79,6 +81,10 @@ const int maxVisibleRecentCommands = 5;
 
 /// Android channel shared with MainActivity for real phone actions.
 const String androidToolsChannelName = 'com.Sarthak.pocket_jinn/android_tools';
+
+/// Channel used by native code to send debug broadcast events to Dart.
+const String debugCallbackChannelName =
+    'com.Sarthak.pocket_jinn/debug_callbacks';
 
 /// The only contact Pocket Jinn may call or message in stage 2.
 const String testContactName = 'sarthak';

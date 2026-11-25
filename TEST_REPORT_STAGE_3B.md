@@ -1,0 +1,103 @@
+# Stage 3B test report
+
+Device: Samsung SM-T865 (Galaxy Tab S6), Android 12, wireless debugging.
+App id: `com.Sarthak.pocket_jinn`.
+Build: debug APK built with `flutter build apk --debug` and installed with
+`adb install -r`, so the Stage 1 language model stayed installed.
+
+Stage 3B replaces the English-only Stage 3 recognizer with a swappable speech
+engine interface. `SherpaSpeechEngine` uses Qwen3-ASR 0.6B int8 and Silero VAD.
+`AndroidSpeechEngine` uses Android's `SpeechRecognizer` with
+`EXTRA_PREFER_OFFLINE`. Settings lets the user pick either engine and a
+language hint. A name matcher transliterates Indian names, builds a simple
+sound key, compares spellings, checks taught aliases first, and returns the
+top three candidates. The LLM receives those names and a risky action needs an
+extra confirmation when the match is weak or two guesses are close.
+
+All speech engine code lives in `lib/services/speech_service.dart` and its two
+Dart part files in the same folder, so an engine can be swapped in one place.
+
+## Verified sources
+
+- `sherpa_onnx` 2.0.3 on pub.dev: real package, Android arm64 supported,
+  Apache-2.0, published 22 Nov 2026. Its Dart API was read from the installed
+  package before use (`OfflineQwen3AsrModelConfig`, `VoiceActivityDetector`,
+  `readWave`).
+- sherpa-onnx Qwen3-ASR docs:
+  `https://k2-fsa.github.io/sherpa/onnx/qwen3-asr/pretrained.html`
+- Model release:
+  `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25.tar.bz2`
+  (879 MB). The release has **no individual files**, so the app downloads them
+  from the matching verified Hugging Face mirror
+  `csukuangfj2/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25`.
+- Silero VAD:
+  `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx`
+  (643,854 bytes), verified with an HTTP HEAD request.
+- The model supports Hindi (`hi`), English (`en`) and 30+ other languages. The
+  verified Dart config has **no language field**, so the language selector is a
+  hint only. The UI says this plainly.
+
+## Results
+
+| # | Test | Commands used | Expected | Actual | Result | Screenshot |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Install and launch | `adb install -r`, `am start -n .../.MainActivity` | App opens, no crash | App opened, Stage 1 brain ready, no fatal log | PASS | `s3b_home.png` |
+| 2 | Settings screen | Tap the gear icon | Engine and language choices visible | Three cards: Speech engine, Language hint, Teach a name | PASS | `s3b_settings.png` |
+| 3 | Engine choice | Open engine dropdown | Two named engines | `Sherpa offline (Qwen3-ASR)` and `Android offline recognizer` | PASS | `s3b_settings.png` |
+| 4 | Language choice | Open language dropdown | Auto, Hindi and English plus model languages | 31 options shown, Auto selected | PASS | `s3b_settings.png` |
+| 5 | Model download | Tap the microphone | All model files download with progress | 7 files downloaded: 44,148,281 / 182,491,662 / 755,914,231 / 1,671,853 / 12,487 / 2,776,833 / 643,854 bytes | PASS | - |
+| 6 | Android storage permission | First debug audio test | App can read a pushed WAV from `/sdcard` | `READ_EXTERNAL_STORAGE` granted; `/sdcard/test_en.wav` transcribed | PASS | - |
+| 7 | Debug audio broadcast | `am broadcast -a <pkg>.DEBUG_COMMAND --es audio_path /sdcard/test_en.wav` | Real STT engine transcribes the file | English rap sample transcribed, starting "Sometimes I just feel like..." | PASS | `s3b_debug_ui5.txt` |
+| 8 | Debug text broadcast | `am broadcast ... --es text "get the current time"` | Text command still runs | Stage 1 time tool flow unchanged in code; device check interrupted by ADB disconnect | NOT VERIFIED | - |
+| 9 | Model load time | Cold start + debug audio | Reported from `debugPrint` | 5,323 ms and 5,444 ms on two cold runs | PASS | - |
+| 10 | Recognition time | Same 18 s English sample | Reported from `debugPrint` | 26,154 ms with 2 threads, 24,946 ms with 4 threads | PASS (slow) | - |
+| 11 | RAM after load | `dumpsys meminfo com.Sarthak.pocket_jinn` | Reported honestly | TOTAL PSS 3,085,506 kB, Native Heap 2,485,788 kB | PASS (high) | - |
+| 12 | Devanagari name | `am broadcast ... --es name "सार्थक"` | Latin key matches `sarthak` | Matcher returned `sarthak:1.00` | PASS | `s3b_name_hi.txt` |
+| 13 | Misspelled name | `am broadcast ... --es name "sarthik"` | Close name still matches | Matcher returned `sarthak:0.86` | PASS | `s3b_name_mis.txt` |
+| 14 | Static checks | `dart format .`, `flutter analyze`, `flutter test` | Clean and passing | Formatter clean, "No issues found!", 6 of 6 tests | PASS | - |
+
+## NOT VERIFIED — for the user to do
+
+These rows need the user's own voice and contact list, which were not available
+during this session. Nothing here is claimed as tested.
+
+- Real microphone push-to-talk with Qwen3-ASR (Stage 3 mic tests used the old
+  engine).
+- VAD end-of-speech stopping when a person stops talking.
+- Hindi and other non-English spoken commands from the user's WAV files.
+- Indian contact names, misspellings, Devanagari spellings and similar-sounding
+  names from the user's list. Only one starter contact, `sarthak`, exists today.
+- "Teach a name" two-recording flow with a real voice and the saved JSON aliases.
+- The extra confirmation dialog when the best name score is low or two guesses
+  are close.
+- `AndroidSpeechEngine` on this tablet: the code path is written, but the device
+  has no offline Google speech data, so a real offline recognition result was
+  not obtained.
+- Wake word: unchanged and not built yet; Stage 4 owns it.
+
+## Notes and limits
+
+- The Qwen3-ASR download is about 982 MB. It is kept in app-private storage and
+  is not in git.
+- Recognition takes about 25 seconds for an 18-second clip on this tablet. A
+  short spoken command should be much faster, but this needs a real-voice test.
+- Memory use is high (about 3 GB PSS). This is the cost of a 0.6B on-device ASR
+  model and may not suit low-RAM phones.
+- The debug audio hook needs `READ_EXTERNAL_STORAGE` on Android 12 and
+  `READ_MEDIA_AUDIO` on Android 13+. A pushed file can be passed as
+  `/sdcard/file.wav` or an app-private path.
+- Debug broadcast forms:
+  - `adb shell am broadcast -a com.Sarthak.pocket_jinn.DEBUG_COMMAND --es audio_path /sdcard/test.wav`
+  - `adb shell am broadcast -a com.Sarthak.pocket_jinn.DEBUG_COMMAND --es text "get the current time"`
+  - `adb shell am broadcast -a com.Sarthak.pocket_jinn.DEBUG_COMMAND --es name "सार्थक"`
+- `shots/*` screenshots are local only and are not committed.
+
+## Honest summary
+
+The Stage 3B engines, settings, debug hook and name matcher are implemented and
+pass static checks. On the tablet, the 982 MB model downloaded, a pushed
+English WAV was transcribed by the real Qwen3-ASR engine, Devanagari and a
+misspelled Latin name matched the test contact, and timings and RAM were
+measured. Accuracy for Hindi and Indian names from the user's own recordings,
+all real-microphone flows, the teaching flow and the ambiguity confirmation
+remain unverified until the user supplies the test data and speaks.

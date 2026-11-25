@@ -4,6 +4,8 @@
 package com.Sarthak.pocket_jinn
 
 import android.Manifest
+import android.os.Build
+import android.icu.text.Transliterator
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -16,6 +18,8 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL_NAME = "com.Sarthak.pocket_jinn/android_tools"
+        private const val DEBUG_CHANNEL_NAME =
+            "com.Sarthak.pocket_jinn/debug_callbacks"
         private const val TEST_CONTACT_NAME = "sarthak"
         private const val TEST_CONTACT_NUMBER = "9023850632"
         private const val CALL_PERMISSION_REQUEST = 4101
@@ -24,16 +28,44 @@ class MainActivity : FlutterActivity() {
 
     private var pendingResult: MethodChannel.Result? = null
     private var pendingAction: (() -> Unit)? = null
+    private var speechBridge: AndroidSpeechBridge? = null
 
     /// Registers the small channel used by the Stage 2 call and SMS tools.
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(
+        val channel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             CHANNEL_NAME,
-        ).setMethodCallHandler { call, result ->
+        )
+        val debugChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            DEBUG_CHANNEL_NAME,
+        )
+        speechBridge = AndroidSpeechBridge(this, channel, debugChannel)
+        channel.setMethodCallHandler { call, result ->
             handleMethodCall(call, result)
         }
+        speechBridge?.registerDebugReceiver()
+        requestTestAudioPermission()
+    }
+
+    /// Asks once for access to pushed test WAV files in shared storage.
+    private fun requestTestAudioPermission() {
+        val permission = if (Build.VERSION.SDK_INT >= 33) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(permission), 4103)
+        }
+    }
+
+    /// Releases the speech recognizer when the activity is destroyed.
+    override fun onDestroy() {
+        speechBridge?.dispose()
+        speechBridge = null
+        super.onDestroy()
     }
 
     /// Chooses the action for one Flutter method call.
@@ -57,6 +89,30 @@ class MainActivity : FlutterActivity() {
                     SMS_PERMISSION_REQUEST,
                     result,
                 ) { sendTestSms(message, result) }
+            }
+
+            "isAndroidSpeechAvailable" ->
+                result.success(speechBridge?.isAvailable() ?: false)
+
+            "startAndroidSpeech" -> {
+                speechBridge?.start(call.argument<String>("languageCode").orEmpty())
+                result.success(true)
+            }
+
+            "stopAndroidSpeech" -> {
+                speechBridge?.stop()
+                result.success(true)
+            }
+
+            "transliterate" -> {
+                val text = call.argument<String>("text").orEmpty()
+                val latin = try {
+                    Transliterator.getInstance("Any-Latin; Latin-ASCII")
+                        .transliterate(text)
+                } catch (error: Exception) {
+                    text
+                }
+                result.success(latin)
             }
 
             else -> result.notImplemented()

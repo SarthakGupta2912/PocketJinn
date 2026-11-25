@@ -63,10 +63,14 @@ class LlmService {
   Future<LlmAnswer> ask({
     required String command,
     required Future<Map<String, dynamic>> Function(ToolCall) onToolCall,
+    String extraContext = '',
   }) async {
     final chat = _chat;
     if (chat == null) throw StateError('The local model is not ready.');
-    await chat.addQueryChunk(Message.text(text: command, isUser: true));
+    final fullCommand = extraContext.isEmpty
+        ? command
+        : '$command\n$extraContext';
+    await chat.addQueryChunk(Message.text(text: fullCommand, isUser: true));
     final text = StringBuffer();
     ToolCall? call;
     Map<String, dynamic>? result;
