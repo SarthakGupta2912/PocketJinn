@@ -12,6 +12,7 @@ import '../models/contact.dart';
 import '../models/contact_candidate.dart';
 import '../services/name_alias_store.dart';
 import '../services/name_matcher.dart';
+import '../services/preview_model_store.dart';
 import '../services/speech_service.dart';
 import '../services/voice_model_store.dart';
 
@@ -32,9 +33,9 @@ class VoiceController extends ChangeNotifier {
     _speech = SpeechService(initialEngine: _engines[sherpaEngineName]!);
   }
 
-  /// The alias store used by the matcher and the teaching flow.
   static final NameAliasStore _aliasStore = NameAliasStore();
   final VoiceModelStore _modelStore = VoiceModelStore();
+  final PreviewModelStore _previewStore = PreviewModelStore();
 
   /// Sends a finished transcript and its contact guesses to the assistant.
   final Future<void> Function(String command, List<ContactCandidate> candidates)
@@ -115,12 +116,16 @@ class VoiceController extends ChangeNotifier {
   /// Prepares the selected engine, then starts recording.
   Future<void> _startListening() async {
     status = VoiceStatus.preparing;
+    transcript = '';
     downloadPercent = 0;
     isDownloading = false;
     _notify();
     try {
       await _prepareEngine();
-      await _speech.startListening(onSpeechEnd: _handleSpeechEnd);
+      await _speech.startListening(
+        onSpeechEnd: _handleSpeechEnd,
+        onPartialText: _showPartialText,
+      );
       status = VoiceStatus.listening;
       message = voiceListeningHint;
       _maximumListenTimer = Timer(voiceMaxListeningDuration, _handleSpeechEnd);
@@ -139,7 +144,8 @@ class VoiceController extends ChangeNotifier {
     message = voicePreparingMessage;
     _notify();
     if (selectedEngine == sherpaEngineName &&
-        !await _modelStore.isInstalled()) {
+        (!await _modelStore.isInstalled() ||
+            !await _previewStore.isInstalled())) {
       isDownloading = true;
       await _speech.prepare(onProgress: _showDownloadProgress);
       isDownloading = false;

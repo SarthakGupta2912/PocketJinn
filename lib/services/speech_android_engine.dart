@@ -43,7 +43,10 @@ class AndroidSpeechEngine implements SpeechEngine {
   }
 
   @override
-  Future<void> startListening({required void Function() onSpeechEnd}) async {
+  Future<void> startListening({
+    required void Function() onSpeechEnd,
+    void Function(String)? onPartialText,
+  }) async {
     await initialize();
     _resultCompleter = Completer<String>();
     _onSpeechEnd = onSpeechEnd;

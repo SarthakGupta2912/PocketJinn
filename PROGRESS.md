@@ -128,6 +128,8 @@ The current application id is `com.Sarthak.pocket_jinn`.
 - Passed the name guesses to the LLM prompt and added an extra dialog when the
   best match is weak or two guesses are close.
 - Added the `DEBUG_COMMAND` audio path, text and name hooks for adb tests.
+- Added a live English word preview from the existing streaming Zipformer model
+  while Qwen3-ASR still produces the final multilingual transcript.
 - Tested on the tablet: model download, settings, pushed English WAV through the
   real engine, Devanagari and misspelled name matching, load/decode timings and
   RAM. The full table is in `TEST_REPORT_STAGE_3B.md`.

@@ -22,6 +22,13 @@ extension VoiceControllerHelpers on VoiceController {
     unawaited(_finishListening());
   }
 
+  /// Shows live words without rebuilding for the same text twice.
+  void _showPartialText(String text) {
+    if (text == transcript) return;
+    transcript = text;
+    _notify();
+  }
+
   /// Updates the download message only when the whole percentage changes.
   void _showDownloadProgress(int percent) {
     if (percent == downloadPercent) return;

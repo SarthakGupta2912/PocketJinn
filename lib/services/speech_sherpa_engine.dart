@@ -7,6 +7,7 @@ part of 'speech_service.dart';
 /// Offline multilingual recognition with the Qwen3-ASR model.
 class SherpaSpeechEngine implements SpeechEngine {
   final VoiceModelStore _modelStore = VoiceModelStore();
+  final StreamingPreviewEngine _preview = StreamingPreviewEngine();
   sherpa.OfflineRecognizer? _recognizer;
   sherpa.VoiceActivityDetector? _voiceDetector;
   AudioRecorder? _recorder;
@@ -15,6 +16,7 @@ class SherpaSpeechEngine implements SpeechEngine {
   bool _areBindingsLoaded = false;
   bool _speechEnded = false;
   void Function()? _onSpeechEnd;
+  void Function(String)? _onPartialText;
 
   @override
   String get displayName => sherpaEngineName;
@@ -23,8 +25,14 @@ class SherpaSpeechEngine implements SpeechEngine {
   Future<bool> isAvailable() async => true;
 
   @override
-  Future<void> prepare({required void Function(int) onProgress}) =>
-      _modelStore.download(onProgress: onProgress);
+  Future<void> prepare({required void Function(int) onProgress}) async {
+    await _modelStore.download(
+      onProgress: (percent) => onProgress((percent * 0.7).round()),
+    );
+    await _preview.prepare(
+      onProgress: (percent) => onProgress(70 + (percent * 0.3).round()),
+    );
+  }
 
   @override
   Future<void> initialize({List<String> hotwords = const []}) async {
@@ -53,6 +61,7 @@ class SherpaSpeechEngine implements SpeechEngine {
       ),
     );
     _voiceDetector = _createVoiceDetector(folder.path);
+    await _preview.initialize();
     if (kDebugMode) {
       debugPrint(
         'Qwen3 load ms: ${DateTime.now().difference(loadStarted).inMilliseconds}',
@@ -61,11 +70,16 @@ class SherpaSpeechEngine implements SpeechEngine {
   }
 
   @override
-  Future<void> startListening({required void Function() onSpeechEnd}) async {
+  Future<void> startListening({
+    required void Function() onSpeechEnd,
+    void Function(String)? onPartialText,
+  }) async {
     await initialize();
     _recordedSamples.clear();
     _speechEnded = false;
     _onSpeechEnd = onSpeechEnd;
+    _onPartialText = onPartialText;
+    await _preview.start();
     _voiceDetector?.reset();
     _recorder ??= AudioRecorder();
     final audio = await _recorder!.startStream(
@@ -87,6 +101,7 @@ class SherpaSpeechEngine implements SpeechEngine {
     } on Object {
       // The recorder may already be stopped; nothing else to do here.
     }
+    _preview.finish();
     return _transcribeSamples(_recordedSamples);
   }
 
@@ -112,6 +127,7 @@ class SherpaSpeechEngine implements SpeechEngine {
     _recorder = null;
     _voiceDetector?.free();
     _voiceDetector = null;
+    _preview.dispose();
     _recognizer?.free();
     _recognizer = null;
   }
@@ -143,6 +159,7 @@ class SherpaSpeechEngine implements SpeechEngine {
     // Keep every chunk. VAD only decides when to stop; it must not decide
     // which audio is sent to the recognizer, or quiet speech is lost.
     _recordedSamples.addAll(samples);
+    _preview.accept(samples, _reportPartial);
     _voiceDetector?.acceptWaveform(samples);
     while (_voiceDetector != null && !_voiceDetector!.isEmpty()) {
       if (_voiceDetector!.isDetected()) {
@@ -152,6 +169,11 @@ class SherpaSpeechEngine implements SpeechEngine {
         _voiceDetector!.pop();
       }
     }
+  }
+
+  /// Sends live preview words to the controller.
+  void _reportPartial(String text) {
+    _onPartialText?.call(text);
   }
 
   /// Calls the controller only once per recording.

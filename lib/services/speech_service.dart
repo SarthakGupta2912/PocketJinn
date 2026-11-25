@@ -12,10 +12,13 @@ import 'package:record/record.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import '../core/constants.dart';
+import '../core/preview_constants.dart';
+import 'preview_model_store.dart';
 import 'voice_model_store.dart';
 
 part 'speech_sherpa_engine.dart';
 part 'speech_android_engine.dart';
+part 'speech_preview_engine.dart';
 
 /// One way of turning speech into text, chosen in Settings.
 abstract class SpeechEngine {
@@ -32,7 +35,11 @@ abstract class SpeechEngine {
   Future<void> initialize({List<String> hotwords = const []});
 
   /// Starts listening. The callback fires when the user stops talking.
-  Future<void> startListening({required void Function() onSpeechEnd});
+  /// A partial-text callback may show live words when the engine supports it.
+  Future<void> startListening({
+    required void Function() onSpeechEnd,
+    void Function(String)? onPartialText,
+  });
 
   /// Stops listening and returns the recognised words.
   Future<String> stopAndTranscribe();
@@ -71,8 +78,13 @@ class SpeechService {
       _engine.initialize(hotwords: hotwords);
 
   /// Starts recording through the selected engine.
-  Future<void> startListening({required void Function() onSpeechEnd}) =>
-      _engine.startListening(onSpeechEnd: onSpeechEnd);
+  Future<void> startListening({
+    required void Function() onSpeechEnd,
+    void Function(String)? onPartialText,
+  }) => _engine.startListening(
+    onSpeechEnd: onSpeechEnd,
+    onPartialText: onPartialText,
+  );
 
   /// Stops recording and returns the transcript.
   Future<String> stopAndTranscribe() => _engine.stopAndTranscribe();

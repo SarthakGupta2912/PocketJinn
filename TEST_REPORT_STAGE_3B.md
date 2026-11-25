@@ -60,7 +60,8 @@ Dart part files in the same folder, so an engine can be swapped in one place.
 | 17 | French sample | `DEBUG_COMMAND` with `fr1.wav` | Correct transcript | "Ali et moi sommes allés à Paris voyager en train au printemps..." — correct apart from one name; decode 2,610 ms | PASS | `s3b_fr1.wav_clean.txt` |
 | 18 | Spanish sample | `DEBUG_COMMAND` with `es1.wav` | Correct transcript | "Esta prenda es amplia. Recomiendo elegir una talla menor al habitual." — correct; decode 2,208 ms | PASS | `s3b_es1.wav_clean.txt` |
 | 19 | Japanese sample | `DEBUG_COMMAND` with `ja1.wav` | Correct transcript | Nonsensical place names ("Gazan, bishkek..."); decode 4,260 ms | FAIL (note below) | `s3b_ja1.wav_clean.txt` |
-| 20 | Static checks | `dart format .`, `flutter analyze`, `flutter test` | Clean and passing | Formatter clean, "No issues found!", 6 of 6 tests | PASS | - |
+| 20 | Live word preview | Play an English WAV while recording and sample the UI every 3 s | Words appear during recording and grow | Preview text appeared and extended across four samples; final Qwen3 result still produced after stopping | PASS | `s3b_live_en_2.txt`, `s3b_live_en_4.txt` |
+| 21 | Static checks | `dart format .`, `flutter analyze`, `flutter test` | Clean and passing | Formatter clean, "No issues found!", 6 of 6 tests | PASS | - |
 
 ## Fixes made after the first device pass
 
@@ -76,6 +77,11 @@ Dart part files in the same folder, so an engine can be swapped in one place.
 3. The brain's system instruction now says to call a tool only when the command
    clearly asks for that action. Earlier arbitrary test audio wrongly produced
    a call request, which the confirmation dialog safely blocked.
+4. The user asked for words during recording. A small English streaming
+   Zipformer (already on the tablet, about 71 MB) now runs beside Qwen3-ASR and
+   shows live words while speaking. Qwen3 still makes the final multilingual
+   transcript. The live preview is English-only and less accurate than the
+   final pass, which is stated in the report.
 
 ## NOT VERIFIED — for the user to do
 
@@ -97,6 +103,9 @@ during this session. Nothing here is claimed as tested.
 
 ## Notes and limits
 
+- The live preview uses the older English-only streaming model. Non-English
+  speech produces rough or wrong live words, but the final Qwen3 transcript is
+  the one that drives the assistant.
 - The Qwen3-ASR download is about 982 MB. It is kept in app-private storage and
   is not in git.
 - Recognition takes about 25 seconds for an 18-second clip on this tablet. A
@@ -128,7 +137,8 @@ pass static checks. On the tablet, the 982 MB model downloaded, settings
 switched engines and hints both ways, pushed German, French, Spanish and
 English WAVs were transcribed by the real Qwen3-ASR engine, typed commands
 still worked, Devanagari and a misspelled Latin name matched the test contact,
-and timings and RAM were measured. Japanese was not recognised correctly, and
+and timings and RAM were measured. Live English words appeared during
+recording and grew as more audio arrived. Japanese was not recognised correctly, and
 arbitrary audio sometimes triggered a confirmation dialog that was cancelled
 safely. Accuracy for Hindi and Indian names from the user's own recordings,
 all spoken-microphone flows, the teaching flow and the ambiguity confirmation
