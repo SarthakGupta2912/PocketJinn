@@ -12,7 +12,6 @@ import '../models/contact.dart';
 import '../models/contact_candidate.dart';
 import '../services/name_alias_store.dart';
 import '../services/name_matcher.dart';
-import '../services/preview_model_store.dart';
 import '../services/speech_service.dart';
 import '../services/voice_model_store.dart';
 
@@ -35,7 +34,6 @@ class VoiceController extends ChangeNotifier {
 
   static final NameAliasStore _aliasStore = NameAliasStore();
   final VoiceModelStore _modelStore = VoiceModelStore();
-  final PreviewModelStore _previewStore = PreviewModelStore();
 
   /// Sends a finished transcript and its contact guesses to the assistant.
   final Future<void> Function(String command, List<ContactCandidate> candidates)
@@ -144,8 +142,7 @@ class VoiceController extends ChangeNotifier {
     message = voicePreparingMessage;
     _notify();
     if (selectedEngine == sherpaEngineName &&
-        (!await _modelStore.isInstalled() ||
-            !await _previewStore.isInstalled())) {
+        !await _modelStore.isInstalled()) {
       isDownloading = true;
       await _speech.prepare(onProgress: _showDownloadProgress);
       isDownloading = false;

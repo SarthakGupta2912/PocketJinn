@@ -12,13 +12,11 @@ import 'package:record/record.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import '../core/constants.dart';
-import '../core/preview_constants.dart';
-import 'preview_model_store.dart';
 import 'voice_model_store.dart';
 
 part 'speech_sherpa_engine.dart';
+part 'speech_sherpa_helpers.dart';
 part 'speech_android_engine.dart';
-part 'speech_preview_engine.dart';
 
 /// One way of turning speech into text, chosen in Settings.
 abstract class SpeechEngine {
