@@ -122,9 +122,10 @@ class SherpaSpeechEngine implements SpeechEngine {
       config: sherpa.VadModelConfig(
         sileroVad: sherpa.SileroVadModelConfig(
           model: p.join(folder, voiceVadFileName),
-          minSilenceDuration: 0.6,
+          threshold: 0.2,
+          minSilenceDuration: 0.5,
           minSpeechDuration: 0.2,
-          maxSpeechDuration: 20,
+          maxSpeechDuration: 10,
         ),
         debug: false,
       ),
@@ -139,10 +140,12 @@ class SherpaSpeechEngine implements SpeechEngine {
     for (var i = 0; i < samples.length; i++) {
       samples[i] = data.getInt16(i * 2, Endian.little) / 32768.0;
     }
+    // Keep every chunk. VAD only decides when to stop; it must not decide
+    // which audio is sent to the recognizer, or quiet speech is lost.
+    _recordedSamples.addAll(samples);
     _voiceDetector?.acceptWaveform(samples);
     while (_voiceDetector != null && !_voiceDetector!.isEmpty()) {
       if (_voiceDetector!.isDetected()) {
-        _recordedSamples.addAll(_voiceDetector!.front().samples);
         _voiceDetector!.pop();
         _notifySpeechEndOnce();
       } else {

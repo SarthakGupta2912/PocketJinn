@@ -129,7 +129,9 @@ class LlmService {
       temperature: 0,
       maxOutputTokens: 128,
       systemInstruction:
-          'Use the available tool when the command asks for an action. '
+          'Only call a tool when the command clearly asks for that action, '
+          'such as calling a named contact or sending a message. Do not call '
+          'a tool for ordinary sentences, questions or background speech. '
           'Give a short answer after the tool result.',
     );
   }

@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -55,7 +56,9 @@ class AndroidSpeechBridge(
                 val text = intent.getStringExtra("text")
                 val audioPath = intent.getStringExtra("audio_path")
                 val name = intent.getStringExtra("name")
+                val playPath = intent.getStringExtra("play_path")
                 when {
+                    !playPath.isNullOrBlank() -> playTestAudio(playPath)
                     !audioPath.isNullOrBlank() ->
                         debugChannel.invokeMethod(
                             "onDebugAudioFile",
@@ -82,6 +85,22 @@ class AndroidSpeechBridge(
             ContextCompat.RECEIVER_EXPORTED,
         )
         debugReceiver = receiver
+    }
+
+    /// Plays a pushed WAV through the tablet speaker for mic-path testing.
+    private fun playTestAudio(path: String) {
+        try {
+            val player = MediaPlayer()
+            player.setDataSource(path)
+            player.prepare()
+            player.start()
+            player.setOnCompletionListener { it.release() }
+        } catch (error: Exception) {
+            debugChannel.invokeMethod(
+                "onDebugError",
+                mapOf("message" to (error.message ?: "Playback failed")),
+            )
+        }
     }
 
     /// Releases the recognizer and the debug receiver.

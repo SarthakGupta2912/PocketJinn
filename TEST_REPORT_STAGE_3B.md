@@ -62,6 +62,21 @@ Dart part files in the same folder, so an engine can be swapped in one place.
 | 19 | Japanese sample | `DEBUG_COMMAND` with `ja1.wav` | Correct transcript | Nonsensical place names ("Gazan, bishkek..."); decode 4,260 ms | FAIL (note below) | `s3b_ja1.wav_clean.txt` |
 | 20 | Static checks | `dart format .`, `flutter analyze`, `flutter test` | Clean and passing | Formatter clean, "No issues found!", 6 of 6 tests | PASS | - |
 
+## Fixes made after the first device pass
+
+1. **Stuck on listening with no recognition.** The first VAD design only sent
+   VAD-detected segments to the recognizer. If VAD never fired, no audio reached
+   STT. Every audio chunk is now kept, and VAD is only used to stop recording.
+   A spoken French clip played through the tablet speaker was then transcribed
+   correctly after tapping stop: "Annie et moi sommes allés à Paris...".
+2. The VAD threshold was lowered from 0.5 to 0.2, following the sherpa-onnx
+   docs example, so quiet speech has a better chance of stopping recording
+   automatically. It still did not auto-stop with speaker playback, so this
+   remains unverified with a real voice.
+3. The brain's system instruction now says to call a tool only when the command
+   clearly asks for that action. Earlier arbitrary test audio wrongly produced
+   a call request, which the confirmation dialog safely blocked.
+
 ## NOT VERIFIED — for the user to do
 
 These rows need the user's own voice and contact list, which were not available
