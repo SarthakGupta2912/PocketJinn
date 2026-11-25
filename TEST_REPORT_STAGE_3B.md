@@ -48,21 +48,26 @@ Dart part files in the same folder, so an engine can be swapped in one place.
 | 5 | Model download | Tap the microphone | All model files download with progress | 7 files downloaded: 44,148,281 / 182,491,662 / 755,914,231 / 1,671,853 / 12,487 / 2,776,833 / 643,854 bytes | PASS | - |
 | 6 | Android storage permission | First debug audio test | App can read a pushed WAV from `/sdcard` | `READ_EXTERNAL_STORAGE` granted; `/sdcard/test_en.wav` transcribed | PASS | - |
 | 7 | Debug audio broadcast | `am broadcast -a <pkg>.DEBUG_COMMAND --es audio_path /sdcard/test_en.wav` | Real STT engine transcribes the file | English rap sample transcribed, starting "Sometimes I just feel like..." | PASS | `s3b_debug_ui5.txt` |
-| 8 | Debug text broadcast | `am broadcast ... --es text "get the current time"` | Text command still runs | Stage 1 time tool flow unchanged in code; device check interrupted by ADB disconnect | NOT VERIFIED | - |
+| 8 | Debug text broadcast | `am broadcast ... --es text 'get the current time'` | Text command still runs | Latest result: "The current time is 6:50 AM on Wednesday, 25 November 2026." | PASS | `s3b_typed_regression2.txt` |
 | 9 | Model load time | Cold start + debug audio | Reported from `debugPrint` | 5,323 ms and 5,444 ms on two cold runs | PASS | - |
 | 10 | Recognition time | Same 18 s English sample | Reported from `debugPrint` | 26,154 ms with 2 threads, 24,946 ms with 4 threads | PASS (slow) | - |
 | 11 | RAM after load | `dumpsys meminfo com.Sarthak.pocket_jinn` | Reported honestly | TOTAL PSS 3,085,506 kB, Native Heap 2,485,788 kB | PASS (high) | - |
 | 12 | Devanagari name | `am broadcast ... --es name "सार्थक"` | Latin key matches `sarthak` | Matcher returned `sarthak:1.00` | PASS | `s3b_name_hi.txt` |
 | 13 | Misspelled name | `am broadcast ... --es name "sarthik"` | Close name still matches | Matcher returned `sarthak:0.86` | PASS | `s3b_name_mis.txt` |
-| 14 | Static checks | `dart format .`, `flutter analyze`, `flutter test` | Clean and passing | Formatter clean, "No issues found!", 6 of 6 tests | PASS | - |
+| 14 | Engine switching | Settings dropdown, both directions | Both engines select without crash | Android selected, Hindi hint chosen, then Sherpa restored, Auto restored | PASS | `s3b_engine_menu2.png`, `s3b_lang_menu.png` |
+| 15 | Mic start/stop with Qwen3 | Tap mic, wait, tap again | No crash and state returns to idle | Red stop button appeared, then idle with "I did not catch that." | PASS (state only) | `s3b_mic3.png` |
+| 16 | German sample | `DEBUG_COMMAND` with `de.wav` | Correct transcript | "Raptorium Bergbau scheint profitierter als Monroe..." — correct; decode 3,206 ms | PASS | `s3b_de.txt` |
+| 17 | French sample | `DEBUG_COMMAND` with `fr1.wav` | Correct transcript | "Ali et moi sommes allés à Paris voyager en train au printemps..." — correct apart from one name; decode 2,610 ms | PASS | `s3b_fr1.wav_clean.txt` |
+| 18 | Spanish sample | `DEBUG_COMMAND` with `es1.wav` | Correct transcript | "Esta prenda es amplia. Recomiendo elegir una talla menor al habitual." — correct; decode 2,208 ms | PASS | `s3b_es1.wav_clean.txt` |
+| 19 | Japanese sample | `DEBUG_COMMAND` with `ja1.wav` | Correct transcript | Nonsensical place names ("Gazan, bishkek..."); decode 4,260 ms | FAIL (note below) | `s3b_ja1.wav_clean.txt` |
+| 20 | Static checks | `dart format .`, `flutter analyze`, `flutter test` | Clean and passing | Formatter clean, "No issues found!", 6 of 6 tests | PASS | - |
 
 ## NOT VERIFIED — for the user to do
 
 These rows need the user's own voice and contact list, which were not available
 during this session. Nothing here is claimed as tested.
 
-- Real microphone push-to-talk with Qwen3-ASR (Stage 3 mic tests used the old
-  engine).
+- Real microphone speech with Qwen3-ASR (only the start/stop state was checked).
 - VAD end-of-speech stopping when a person stops talking.
 - Hindi and other non-English spoken commands from the user's WAV files.
 - Indian contact names, misspellings, Devanagari spellings and similar-sounding
@@ -83,6 +88,15 @@ during this session. Nothing here is claimed as tested.
   short spoken command should be much faster, but this needs a real-voice test.
 - Memory use is high (about 3 GB PSS). This is the cost of a 0.6B on-device ASR
   model and may not suit low-RAM phones.
+- Transcription is reliable and fast on short European-language clips here:
+  2.2–4.3 seconds for 6–20 second samples. An 18-second noisy English clip took
+  about 25 seconds, so long audio is slow on this tablet.
+- The Japanese test clip produced nonsense. The model lists Japanese as
+  supported, but this device sample was not recognised correctly. This is a
+  model limitation, not a crash.
+- Arbitrary test audio sometimes made the brain request a call or SMS. The
+  existing confirmation dialog appeared every time and was safely cancelled;
+  no risky action ran during testing.
 - The debug audio hook needs `READ_EXTERNAL_STORAGE` on Android 12 and
   `READ_MEDIA_AUDIO` on Android 13+. A pushed file can be passed as
   `/sdcard/file.wav` or an app-private path.
@@ -95,9 +109,12 @@ during this session. Nothing here is claimed as tested.
 ## Honest summary
 
 The Stage 3B engines, settings, debug hook and name matcher are implemented and
-pass static checks. On the tablet, the 982 MB model downloaded, a pushed
-English WAV was transcribed by the real Qwen3-ASR engine, Devanagari and a
-misspelled Latin name matched the test contact, and timings and RAM were
-measured. Accuracy for Hindi and Indian names from the user's own recordings,
-all real-microphone flows, the teaching flow and the ambiguity confirmation
+pass static checks. On the tablet, the 982 MB model downloaded, settings
+switched engines and hints both ways, pushed German, French, Spanish and
+English WAVs were transcribed by the real Qwen3-ASR engine, typed commands
+still worked, Devanagari and a misspelled Latin name matched the test contact,
+and timings and RAM were measured. Japanese was not recognised correctly, and
+arbitrary audio sometimes triggered a confirmation dialog that was cancelled
+safely. Accuracy for Hindi and Indian names from the user's own recordings,
+all spoken-microphone flows, the teaching flow and the ambiguity confirmation
 remain unverified until the user supplies the test data and speaks.
