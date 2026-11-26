@@ -40,11 +40,11 @@ const double voiceVadBufferSeconds = 30;
 /// Maximum length of one voice command before recording stops itself.
 const Duration voiceMaxListeningDuration = Duration(seconds: 30);
 
-/// How often Qwen3 decodes a short window while the user is still speaking.
-const Duration voicePartialInterval = Duration(seconds: 5);
+/// Quietest average volume of a detected segment treated as real speech.
+const double voiceMinSpeechLevel = 0.01;
 
-/// Length of the audio window used for each live Qwen3 partial result.
-const Duration voicePartialWindow = Duration(seconds: 6);
+/// Quietest single peak accepted when the user stops the microphone by hand.
+const double voiceMinSpeechPeak = 0.05;
 
 /// Engine names shown in Settings.
 const String sherpaEngineName = 'Sherpa offline (Qwen3-ASR)';

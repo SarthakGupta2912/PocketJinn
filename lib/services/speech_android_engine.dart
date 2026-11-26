@@ -36,7 +36,13 @@ class AndroidSpeechEngine implements SpeechEngine {
   }
 
   @override
-  Future<void> initialize({List<String> hotwords = const []}) async {
+  Future<bool> isInstalled() async => true;
+
+  @override
+  Future<void> initialize({
+    List<String> hotwords = const [],
+    String languageCode = '',
+  }) async {
     if (_handlerReady) return;
     _channel.setMethodCallHandler(_handleNativeCall);
     _handlerReady = true;

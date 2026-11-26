@@ -4,6 +4,7 @@
 // this folder so a speech model can be swapped without touching the screens.
 
 import 'dart:async';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -12,10 +13,14 @@ import 'package:record/record.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import '../core/constants.dart';
+import '../core/preview_constants.dart';
+import 'preview_model_store.dart';
+import 'preview_worker.dart';
 import 'voice_model_store.dart';
 
 part 'speech_sherpa_engine.dart';
 part 'speech_sherpa_helpers.dart';
+part 'speech_preview_engine.dart';
 part 'speech_android_engine.dart';
 
 /// One way of turning speech into text, chosen in Settings.
@@ -29,8 +34,14 @@ abstract class SpeechEngine {
   /// Downloads its model once and reports progress from 0 to 100.
   Future<void> prepare({required void Function(int) onProgress});
 
+  /// True when every file this engine needs is already on the device.
+  Future<bool> isInstalled();
+
   /// Loads the model. Names are passed as hints to help recognition.
-  Future<void> initialize({List<String> hotwords = const []});
+  Future<void> initialize({
+    List<String> hotwords = const [],
+    String languageCode = '',
+  });
 
   /// Starts listening. The callback fires when the user stops talking.
   /// A partial-text callback may show live words when the engine supports it.
@@ -71,9 +82,14 @@ class SpeechService {
   Future<void> prepare({required void Function(int) onProgress}) =>
       _engine.prepare(onProgress: onProgress);
 
+  /// True when the selected engine needs no more downloads.
+  Future<bool> isInstalled() => _engine.isInstalled();
+
   /// Loads the selected engine with optional name hints.
-  Future<void> initialize({List<String> hotwords = const []}) =>
-      _engine.initialize(hotwords: hotwords);
+  Future<void> initialize({
+    List<String> hotwords = const [],
+    String languageCode = '',
+  }) => _engine.initialize(hotwords: hotwords, languageCode: languageCode);
 
   /// Starts recording through the selected engine.
   Future<void> startListening({

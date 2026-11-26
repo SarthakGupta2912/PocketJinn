@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodChannel
 
@@ -94,6 +95,7 @@ class AndroidSpeechBridge(
             player.setDataSource(path)
             player.prepare()
             player.start()
+            Log.d("PocketJinnDebug", "play start")
             player.setOnCompletionListener { it.release() }
         } catch (error: Exception) {
             debugChannel.invokeMethod(

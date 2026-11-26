@@ -1,6 +1,6 @@
 // What is this file for?
-// Small helpers for the Sherpa engine: VAD setup, live partial decoding and
-// the final offline transcription pass.
+// Small helpers for the Sherpa engine: voice activity detection and the final
+// offline transcription pass.
 
 part of 'speech_service.dart';
 
@@ -12,33 +12,15 @@ extension SherpaSpeechEngineHelpers on SherpaSpeechEngine {
       config: sherpa.VadModelConfig(
         sileroVad: sherpa.SileroVadModelConfig(
           model: p.join(folder, voiceVadFileName),
-          threshold: 0.2,
+          threshold: 0.5,
           minSilenceDuration: 0.5,
-          minSpeechDuration: 0.2,
-          maxSpeechDuration: 10,
+          minSpeechDuration: 0.35,
+          maxSpeechDuration: 30,
         ),
         debug: false,
       ),
       bufferSizeInSeconds: voiceVadBufferSeconds,
     );
-  }
-
-  /// Decodes the latest speech window with Qwen3 for a slower live result.
-  Future<void> decodePartial() async {
-    if (_recognizer == null || _recordedSamples.isEmpty) return;
-    final windowSize = voicePartialWindow.inSeconds * voiceSampleRate;
-    final start = _recordedSamples.length > windowSize
-        ? _recordedSamples.length - windowSize
-        : 0;
-    try {
-      final text = await transcribeSamples(_recordedSamples.skip(start));
-      if (text.isNotEmpty) {
-        if (kDebugMode) debugPrint('Qwen3 partial: $text');
-        _onPartialText?.call(text);
-      }
-    } on Object {
-      // A partial result is optional; the final pass after stop still runs.
-    }
   }
 
   /// Runs the offline recognizer on a list of audio samples.
