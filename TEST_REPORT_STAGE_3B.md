@@ -14,8 +14,8 @@ sound key, compares spellings, checks taught aliases first, and returns the
 top three candidates. The LLM receives those names and a risky action needs an
 extra confirmation when the match is weak or two guesses are close.
 
-All speech engine code lives in `lib/services/speech_service.dart` and its two
-Dart part files in the same folder, so an engine can be swapped in one place.
+All speech engine code lives in `lib/services/speech_service.dart` and its Dart
+part files in the same folder, so an engine can be swapped in one place.
 
 ## Verified sources
 
@@ -36,6 +36,13 @@ Dart part files in the same folder, so an engine can be swapped in one place.
 - The model supports Hindi (`hi`), English (`en`) and 30+ other languages. The
   verified Dart config has **no language field**, so the language selector is a
   hint only. The UI says this plainly.
+- Live-word preview: multilingual Whisper base int8 from
+  `csukuangfj/sherpa-onnx-whisper-base`, files `base-encoder.int8.onnx`
+  (29,120,534 bytes), `base-decoder.int8.onnx` (130,672,026 bytes) and
+  `base-tokens.txt` (816,730 bytes). All three URLs were checked with HTTP HEAD.
+  The Dart `OfflineWhisperModelConfig`, including its `language` field, was read
+  from the installed `sherpa_onnx` 2.0.3 package, and the language override was
+  checked against the matching sherpa-onnx C++ decoder source.
 
 ## Results
 
@@ -45,7 +52,7 @@ Dart part files in the same folder, so an engine can be swapped in one place.
 | 2 | Settings screen | Tap the gear icon | Engine and language choices visible | Three cards: Speech engine, Language hint, Teach a name | PASS | `s3b_settings.png` |
 | 3 | Engine choice | Open engine dropdown | Two named engines | `Sherpa offline (Qwen3-ASR)` and `Android offline recognizer` | PASS | `s3b_settings.png` |
 | 4 | Language choice | Open language dropdown | Auto, Hindi and English plus model languages | 31 options shown, Auto selected | PASS | `s3b_settings.png` |
-| 5 | Model download | Tap the microphone | All model files download with progress | 7 files downloaded: 44,148,281 / 182,491,662 / 755,914,231 / 1,671,853 / 12,487 / 2,776,833 / 643,854 bytes | PASS | - |
+| 5 | Model download | Tap the microphone | All model files download with progress | 7 Qwen3 files (982 MB) plus 3 preview files (160 MB) downloaded with progress | PASS | - |
 | 6 | Android storage permission | First debug audio test | App can read a pushed WAV from `/sdcard` | `READ_EXTERNAL_STORAGE` granted; `/sdcard/test_en.wav` transcribed | PASS | - |
 | 7 | Debug audio broadcast | `am broadcast -a <pkg>.DEBUG_COMMAND --es audio_path /sdcard/test_en.wav` | Real STT engine transcribes the file | English rap sample transcribed, starting "Sometimes I just feel like..." | PASS | `s3b_debug_ui5.txt` |
 | 8 | Debug text broadcast | `am broadcast ... --es text 'get the current time'` | Text command still runs | Latest result: "The current time is 6:50 AM on Wednesday, 25 November 2026." | PASS | `s3b_typed_regression2.txt` |
@@ -60,8 +67,14 @@ Dart part files in the same folder, so an engine can be swapped in one place.
 | 17 | French sample | `DEBUG_COMMAND` with `fr1.wav` | Correct transcript | "Ali et moi sommes allés à Paris voyager en train au printemps..." — correct apart from one name; decode 2,610 ms | PASS | `s3b_fr1.wav_clean.txt` |
 | 18 | Spanish sample | `DEBUG_COMMAND` with `es1.wav` | Correct transcript | "Esta prenda es amplia. Recomiendo elegir una talla menor al habitual." — correct; decode 2,208 ms | PASS | `s3b_es1.wav_clean.txt` |
 | 19 | Japanese sample | `DEBUG_COMMAND` with `ja1.wav` | Correct transcript | Nonsensical place names ("Gazan, bishkek..."); decode 4,260 ms | FAIL (note below) | `s3b_ja1.wav_clean.txt` |
-| 20 | Live Qwen3 partial result | Play an English/French WAV while recording and wait for the 5 s timer | Accurate words appear before stopping | `debugPrint` showed a correct French partial while still in listening state: "Annie et moi sommes allés à Paris..." | PASS (with lag) | - |
-| 21 | Static checks | `dart format .`, `flutter analyze`, `flutter test` | Clean and passing | Formatter clean, "No issues found!", 6 of 6 tests | PASS | - |
+| 20 | Slow Qwen3 partials (removed) | Play a WAV while recording and wait for the 5 s timer | Accurate words appear before stopping | Accurate French text appeared but only after several seconds, and the screen paused during each decode | FAIL (too slow) | - |
+| 21 | Fast live words | Play English, French and Indian-accented English WAVs while recording | Words appear within about 1–2 s and stay on screen | Preview text appeared and updated every ~0.5 s; English "It's the time", French "années… à Paris", name clip "Goal, Sartik"; decode 127–573 ms | PASS | `cum_2.png`, `nm_2.png` |
+| 22 | Final result unchanged | Tap stop after the preview | Qwen3 final transcript drives the assistant | Final result produced "Is the time?" and the assistant answered the current time; name clip matched `sarthak (0.50)` and the confirmation dialog was cancelled | PASS | `nm_after.txt` |
+| 23 | Static checks | `dart format .`, `flutter analyze`, `flutter test` | Clean and passing | Formatter clean, "No issues found!", 6 of 6 tests | PASS | - |
+| 24 | VAD-gated live preview, English | Play `/sdcard/en_alarm.wav` while recording | Live words before stopping, final Qwen3 unchanged | First words ~1.9 s after playback, full sentence by ~2.5 s, decode 277–610 ms; final "Set an alarm for seven in the morning." | PASS | `en_final3.txt` |
+| 25 | Noise rejection | Start the microphone in a quiet room | Room noise must not stop recording or produce words | VAD segments at level 0.0022 and 0.0049 were rejected; recording stayed active | PASS | - |
+| 26 | Hindi hint with preview | Hindi hint + `/sdcard/hi_long.mp3` | Accurate final transcript in Devanagari | Qwen3 returned "आज मौसम कैसा रहेगा? क्या आज बारिश होगी?"; live preview stayed romanised and rough | PASS (final only) | `hif.png` |
+| 27 | Preview model trials | Tried tiny int8, base int8, base fp32, small int8 | Fast preview that also writes Hindi | base int8 was fastest (277–610 ms), base fp32 also romanised Hindi, small int8 wrote Devanagari but took 1.5–5.3 s per decode and fell behind; kept base int8 | FAIL (kept base) | - |
 
 ## Fixes made after the first device pass
 
@@ -77,21 +90,33 @@ Dart part files in the same folder, so an engine can be swapped in one place.
 3. The brain's system instruction now says to call a tool only when the command
    clearly asks for that action. Earlier arbitrary test audio wrongly produced
    a call request, which the confirmation dialog safely blocked.
-4. The user asked for the accurate result during recording, not just rough
-   words. The separate English streaming preview was removed. Qwen3-ASR now
-   decodes the last 6 seconds of audio every 5 seconds and shows its text while
-   still listening. It is accurate but slow: each decode can pause the UI for a
-   few seconds, so updates arrive with a lag. The full final pass still runs
-   after stopping.
+4. The user asked for accurate words during recording, so Qwen3 partial decoding
+   replaced the rough streaming preview. That worked but each update took
+   several seconds and paused the screen, so the user asked for lower latency.
+   The Qwen3 partial timer was removed. A small multilingual Whisper tiny model
+   now runs in its own background isolate and decodes the audio heard so far
+   every half second. Its text appears about 1–2 seconds behind speech, keeps
+   earlier words instead of dropping them, and never blocks the screen. Qwen3
+   still makes the accurate final transcript after stopping. Music notes and
+   common noise phrases are filtered, and short silent windows are skipped.
+5. **Noise triggered false stops and invented preview words.** A room-noise
+   burst produced a 0.6 s VAD segment with level 0.0022, which ended the
+   recording before the user spoke. VAD segments now need average level
+   >= 0.01 to stop, and preview audio is only fed when VAD detects speech and
+   the chunk level is >= 0.005. A 1.2 s pre-roll keeps the first word, and the
+   first decode waits for 2 s so it starts with a real phrase. Repetition
+   cleanup drops a trailing copy of the sentence start.
 
 ## NOT VERIFIED — for the user to do
 
 These rows need the user's own voice and contact list, which were not available
 during this session. Nothing here is claimed as tested.
 
-- Real microphone speech with Qwen3-ASR (only the start/stop state was checked).
-- VAD end-of-speech stopping when a person stops talking.
-- Hindi and other non-English spoken commands from the user's WAV files.
+- Real microphone speech with Qwen3-ASR (only speaker playback was checked).
+- VAD end-of-speech stopping for a real person; it was verified with speaker
+  playback of English and Hindi clips (segments at level 0.0170 and 0.0225).
+- Hindi and other non-English spoken commands from the user's own WAV files
+  (the checks used Google Translate TTS clips).
 - Indian contact names, misspellings, Devanagari spellings and similar-sounding
   names from the user's list. Only one starter contact, `sarthak`, exists today.
 - "Teach a name" two-recording flow with a real voice and the saved JSON aliases.
@@ -104,15 +129,31 @@ during this session. Nothing here is claimed as tested.
 
 ## Notes and limits
 
-- Live text comes from Qwen3-ASR decoding a six-second window every five
-  seconds. It is more accurate than a small streaming model but arrives with a
-  lag, and the screen can pause briefly during each decode.
+- Live text comes from Whisper base int8 running in a background isolate. It
+  decodes the newest 12 s every half second and is deliberately approximate;
+  the accurate Qwen3 result replaces it after stopping. English preview words
+  arrive about 1.9 s after speech starts and decode takes 277–610 ms.
+  Hindi preview is only romanised/rough with a model this small: the final
+  Qwen3 transcript is the accurate Devanagari one. Trials of base fp32 and
+  small int8 were rejected: neither improved speed, and small int8 took
+  1.5–5.3 s per decode while falling behind the microphone.
+- VAD segments below level 0.01 are ignored, so room noise does not stop a
+  recording. The preview only receives audio when VAD hears speech and the
+  chunk level is >= 0.005.
+- The preview download is about 160 MB, so total speech storage is about
+  1.14 GB. It is kept in app-private storage and is not in git. The trial
+  folders `sherpa-whisper-tiny`, `sherpa-whisper-small` and
+  `sherpa-whisper-base-full` remain on the test tablet from model comparisons;
+  the app does not use them.
+- Preview load took about 1.3–5.5 s on the tablet and ran in parallel with the
+  Qwen3 load. Qwen3 load stayed around 5.2–5.9 s.
 - The Qwen3-ASR download is about 982 MB. It is kept in app-private storage and
   is not in git.
 - Recognition takes about 25 seconds for an 18-second clip on this tablet. A
   short spoken command should be much faster, but this needs a real-voice test.
-- Memory use is high (about 3 GB PSS). This is the cost of a 0.6B on-device ASR
-  model and may not suit low-RAM phones.
+- Memory use is high (about 2.7 GB PSS after the preview model loaded). This is
+  the cost of a 0.6B on-device ASR model plus the preview model and may not suit
+  low-RAM phones.
 - Transcription is reliable and fast on short European-language clips here:
   2.2–4.3 seconds for 6–20 second samples. An 18-second noisy English clip took
   about 25 seconds, so long audio is slow on this tablet.
@@ -138,8 +179,9 @@ pass static checks. On the tablet, the 982 MB model downloaded, settings
 switched engines and hints both ways, pushed German, French, Spanish and
 English WAVs were transcribed by the real Qwen3-ASR engine, typed commands
 still worked, Devanagari and a misspelled Latin name matched the test contact,
-and timings and RAM were measured. An accurate Qwen3 partial appeared while
-still listening. Japanese was not recognised correctly, and
+and timings and RAM were measured. Fast live words now appear before stopping,
+while the accurate Qwen3 transcript still runs after stopping. Japanese was not
+recognised correctly, and
 arbitrary audio sometimes triggered a confirmation dialog that was cancelled
 safely. Accuracy for Hindi and Indian names from the user's own recordings,
 all spoken-microphone flows, the teaching flow and the ambiguity confirmation

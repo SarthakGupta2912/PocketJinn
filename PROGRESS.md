@@ -128,20 +128,22 @@ The current application id is `com.Sarthak.pocket_jinn`.
 - Passed the name guesses to the LLM prompt and added an extra dialog when the
   best match is weak or two guesses are close.
 - Added the `DEBUG_COMMAND` audio path, text and name hooks for adb tests.
-- Added periodic Qwen3 partial decoding every 5 seconds so its accurate text
-  appears while the user is still speaking; the separate rough streaming
-  preview was removed.
+- Added fast live words with a multilingual Whisper base int8 model running in a
+  background isolate, so updates never pause the screen. VAD gates the audio,
+  a 1.2 s pre-roll keeps the first word, and a level gate stops room noise from
+  ending the recording or inventing words. Qwen3 still makes the accurate final
+  transcript. Hindi preview is only romanised; the final transcript is correct.
 - Tested on the tablet: model download, settings, pushed English WAV through the
   real engine, Devanagari and misspelled name matching, load/decode timings and
   RAM. The full table is in `TEST_REPORT_STAGE_3B.md`.
 
 ## Next
 
-- Ask the user to connect the tablet again and send the Indian contact list plus
-  Hindi/English WAV files. Complete the NOT VERIFIED rows in
-  `TEST_REPORT_STAGE_3B.md`, then start stage 4: background listening and the
-  "Hey Jinn" wake word. Ask before adding any accessibility service, and confirm
-  wake-word behaviour in noise on the device before calling it done.
+- Ask the user for the Indian contact list plus their own Hindi/English WAV
+  files. Complete the NOT VERIFIED rows in `TEST_REPORT_STAGE_3B.md`, then start
+  stage 4: background listening and the "Hey Jinn" wake word. Ask before adding
+  any accessibility service, and confirm wake-word behaviour in noise on the
+  device before calling it done.
 
 ## Known issues
 
@@ -151,8 +153,11 @@ The current application id is `com.Sarthak.pocket_jinn`.
 - Real voice accuracy for Stage 3B is still unverified. The user needs to speak
   Hindi, English and Indian names on the tablet.
 - The wake word is not built yet. Stage 3 and 3B are push-to-talk only.
-- The Qwen3-ASR model uses about 982 MB of app storage and about 3 GB RAM after
-  loading; an 18-second clip took about 25 seconds to decode on this tablet.
+- The Qwen3-ASR model uses about 982 MB of app storage and about 2.7 GB RAM after
+  loading; the live preview adds about 103 MB of storage. An 18-second clip took
+  about 25 seconds to decode on this tablet.
+- The live preview is approximate by design. When the language hint is Auto,
+  background noise can briefly show words in an unexpected script.
 - The Android offline speech engine needs offline language data installed on
   the device; it is not installed on the test tablet.
 - History is in memory only, so a cold start has an empty list.
