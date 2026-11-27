@@ -20,15 +20,21 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL_NAME = "com.Sarthak.pocket_jinn/android_tools"
         private const val DEBUG_CHANNEL_NAME =
             "com.Sarthak.pocket_jinn/debug_callbacks"
+        private const val WAKE_CHANNEL_NAME = "com.Sarthak.pocket_jinn/wake_word"
         private const val TEST_CONTACT_NAME = "sarthak"
         private const val TEST_CONTACT_NUMBER = "9023850632"
         private const val CALL_PERMISSION_REQUEST = 4101
         private const val SMS_PERMISSION_REQUEST = 4102
+        private const val NOTIFICATION_PERMISSION_REQUEST = 4106
     }
 
     private var pendingResult: MethodChannel.Result? = null
     private var pendingAction: (() -> Unit)? = null
+    private var pendingNotificationResult: MethodChannel.Result? = null
     private var speechBridge: AndroidSpeechBridge? = null
+    private var wakeChannel: MethodChannel? = null
+    private var isVisible = false
+    private var pendingWake = false
 
     /// Registers the small channel used by the Stage 2 call and SMS tools.
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -44,6 +50,13 @@ class MainActivity : FlutterActivity() {
         speechBridge = AndroidSpeechBridge(this, channel, debugChannel)
         channel.setMethodCallHandler { call, result ->
             handleMethodCall(call, result)
+        }
+        wakeChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            WAKE_CHANNEL_NAME,
+        )
+        wakeChannel?.setMethodCallHandler { call, result ->
+            handleWakeCall(call, result)
         }
         speechBridge?.registerDebugReceiver()
         requestTestAudioPermission()
@@ -61,11 +74,114 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /// Remembers when the app is on screen and reads a wake notification tap.
+    override fun onResume() {
+        super.onResume()
+        isVisible = true
+        consumeWakeExtra(intent)
+    }
+
+    /// Marks the app hidden so the wake alert can be shown instead.
+    override fun onPause() {
+        isVisible = false
+        super.onPause()
+    }
+
+    /// Reads a wake notification tap while the activity already exists.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeWakeExtra(intent)
+    }
+
+    /// Turns the wake extra into a pending wake and clears it from the intent.
+    private fun consumeWakeExtra(intent: Intent?) {
+        if (intent?.getBooleanExtra(WakeWordService.WAKE_EXTRA, false) == true) {
+            pendingWake = true
+            intent.removeExtra(WakeWordService.WAKE_EXTRA)
+        }
+    }
+
     /// Releases the speech recognizer when the activity is destroyed.
     override fun onDestroy() {
         speechBridge?.dispose()
         speechBridge = null
+        wakeChannel?.setMethodCallHandler(null)
+        wakeChannel = null
         super.onDestroy()
+    }
+
+    /// Chooses the action for one wake-word method call.
+    private fun handleWakeCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "startService" -> {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    result.error(
+                        "NO_MIC",
+                        "Microphone permission is needed for the wake word.",
+                        null,
+                    )
+                    return
+                }
+                try {
+                    WakeWordService.start(this)
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error(
+                        "SERVICE_FAILED",
+                        error.message ?: "The wake word service could not start.",
+                        null,
+                    )
+                }
+            }
+
+            "stopService" -> {
+                WakeWordService.stop(this)
+                result.success(true)
+            }
+
+            "notifyWake" -> {
+                if (isVisible) {
+                    result.success("foreground")
+                } else {
+                    WakeWordService.showWakeNotification(this)
+                    result.success("background")
+                }
+            }
+
+            "takePendingWake" -> {
+                val wasPending = pendingWake
+                pendingWake = false
+                result.success(wasPending)
+            }
+
+            "requestNotificationPermission" ->
+                requestNotificationPermission(result)
+
+            else -> result.notImplemented()
+        }
+    }
+
+    /// Asks for notification access on Android 13 and newer.
+    private fun requestNotificationPermission(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < 33 ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            result.success(true)
+            return
+        }
+        if (pendingNotificationResult != null) {
+            result.error("BUSY", "Another permission request is already open.", null)
+            return
+        }
+        pendingNotificationResult = result
+        requestPermissions(
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            NOTIFICATION_PERMISSION_REQUEST,
+        )
     }
 
     /// Chooses the action for one Flutter method call.
@@ -146,6 +262,15 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST) {
+            val notificationResult = pendingNotificationResult
+            pendingNotificationResult = null
+            notificationResult?.success(
+                grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED,
+            )
+            return
+        }
         val result = pendingResult ?: return
         val action = pendingAction
         pendingResult = null
