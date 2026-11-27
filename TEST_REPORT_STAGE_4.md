@@ -69,10 +69,12 @@ The model bundled in the app is from the official full release archive:
 - **Real human voice.** No person spoke "Hey Jinn" near the tablet during this
   test. Detection was verified by feeding pushed WAVs through the same worker.
 - **Speaker-to-microphone path.** Playing the TTS WAV through the tablet
-  speaker while the wake listener was on did not produce a detection. The
-  microphone stream was active and carried audio, but Samsung's record path may
-  suppress or distort the speaker playback. The user should say the phrase
-  aloud; that path was not reproducible with the available tools.
+  speaker while the wake listener was on did not produce a detection. A repeat
+  with a clipped 4x-amplified WAV at maximum media volume also produced no
+  detection. The microphone stream was active and carried audio, but Samsung's
+  record path applies acoustic echo cancellation and other preprocessing, so
+  speaker playback is not a reliable way to test this path. The user should say
+  the phrase aloud; that path was not reproducible with the available tools.
 - **Noise on device.** The parameter sweep used generated noise on the dev
   machine. No live noisy-room test with the tablet was possible.
 - **Android 13+ notification permission.** The test device is Android 12, so
