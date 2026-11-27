@@ -22,8 +22,15 @@ enum VoiceStatus { idle, preparing, listening, finishing }
 
 /// Downloads, runs and stops the selected offline speech engine.
 class VoiceController extends ChangeNotifier {
-  VoiceController({required this.onTranscript, required this.canRunCommands})
-    : _matcher = NameMatcher(contacts: knownContacts, aliasStore: _aliasStore) {
+  VoiceController({
+    required this.onTranscript,
+    required this.canRunCommands,
+    this.beforeListening,
+    this.afterListening,
+  }) : _matcher = NameMatcher(
+         contacts: knownContacts,
+         aliasStore: _aliasStore,
+       ) {
     _engines = {
       sherpaEngineName: SherpaSpeechEngine(),
       androidEngineName: AndroidSpeechEngine(languageCode: ''),
@@ -39,6 +46,12 @@ class VoiceController extends ChangeNotifier {
 
   /// Tells whether the offline brain is ready to understand a command.
   final bool Function() canRunCommands;
+
+  /// Runs before the voice microphone opens, so the wake word can stop first.
+  final Future<void> Function()? beforeListening;
+
+  /// Runs after a voice command finishes, so the wake word can start again.
+  final Future<void> Function()? afterListening;
 
   late final Map<String, SpeechEngine> _engines;
   late final SpeechService _speech;
@@ -72,6 +85,13 @@ class VoiceController extends ChangeNotifier {
     }
     if (isBusy) return;
     await _startListening();
+  }
+
+  /// Starts listening after the wake word was heard. Returns true if it began.
+  Future<bool> startFromWake() async {
+    if (status == VoiceStatus.listening || isBusy) return false;
+    await _startListening();
+    return status == VoiceStatus.listening;
   }
 
   /// Changes the engine and forgets the loaded model.
@@ -111,6 +131,11 @@ class VoiceController extends ChangeNotifier {
 
   /// Prepares the selected engine, then starts recording.
   Future<void> _startListening() async {
+    try {
+      await beforeListening?.call();
+    } on Object {
+      // The wake word is optional; its pause must not block the microphone.
+    }
     status = VoiceStatus.preparing;
     transcript = '';
     downloadPercent = 0;
@@ -128,8 +153,18 @@ class VoiceController extends ChangeNotifier {
     } on Object {
       status = VoiceStatus.idle;
       message = voiceUnavailableMessage;
+      await _resumeWakeWord();
     }
     _notify();
+  }
+
+  /// Starts the wake word again when a voice command is not running.
+  Future<void> _resumeWakeWord() async {
+    try {
+      await afterListening?.call();
+    } on Object {
+      // The wake word is optional; its restart must not break the app.
+    }
   }
 
   /// Downloads once, then loads the engine with name hints.
@@ -158,35 +193,39 @@ class VoiceController extends ChangeNotifier {
     message = voiceFinishingMessage;
     _notify();
 
-    String heardText;
     try {
-      heardText = await _speech.stopAndTranscribe();
-    } on Object {
-      heardText = '';
-    }
-    final transcript = _removeWakeName(heardText);
-    this.transcript = transcript;
-    status = VoiceStatus.idle;
-    if (teachingContact != null) {
-      await _saveTeachingSample(transcript);
-      return;
-    }
-    if (transcript.isEmpty) {
-      message = voiceNoSpeechMessage;
+      String heardText;
+      try {
+        heardText = await _speech.stopAndTranscribe();
+      } on Object {
+        heardText = '';
+      }
+      final transcript = _removeWakeName(heardText);
+      this.transcript = transcript;
+      status = VoiceStatus.idle;
+      if (teachingContact != null) {
+        await _saveTeachingSample(transcript);
+        return;
+      }
+      if (transcript.isEmpty) {
+        message = voiceNoSpeechMessage;
+        _notify();
+        return;
+      }
+      candidates = await _matcher.match(transcript);
+      message = candidates.isEmpty
+          ? homeMicrophoneHint
+          : 'Heard: ${candidates.first.matchedName}';
       _notify();
-      return;
+      if (!canRunCommands()) {
+        message = voiceBrainNotReadyMessage;
+        _notify();
+        return;
+      }
+      await onTranscript(transcript, candidates);
+    } finally {
+      await _resumeWakeWord();
     }
-    candidates = await _matcher.match(transcript);
-    message = candidates.isEmpty
-        ? homeMicrophoneHint
-        : 'Heard: ${candidates.first.matchedName}';
-    _notify();
-    if (!canRunCommands()) {
-      message = voiceBrainNotReadyMessage;
-      _notify();
-      return;
-    }
-    await onTranscript(transcript, candidates);
   }
 
   /// Avoids notifying a home screen that has already been removed.

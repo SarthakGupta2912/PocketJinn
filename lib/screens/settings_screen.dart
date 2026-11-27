@@ -10,6 +10,7 @@ import '../core/app_theme.dart';
 import '../core/constants.dart';
 import '../core/contact_data.dart';
 import '../controllers/voice_controller.dart';
+import '../controllers/wake_word_controller.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_dropdown.dart';
@@ -17,13 +18,21 @@ import '../widgets/app_scaffold.dart';
 import '../widgets/app_text.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/section_title.dart';
+import '../widgets/wake_word_card.dart';
 
 /// Settings for Stage 3B speech recognition and name learning.
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.voiceController});
+  const SettingsScreen({
+    super.key,
+    required this.voiceController,
+    required this.wakeController,
+  });
 
   /// The same voice controller used by the home screen.
   final VoiceController voiceController;
+
+  /// The background wake-word detector owned by the home screen.
+  final WakeWordController wakeController;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -40,11 +49,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     unawaited(_checkAndroidAvailability());
   }
 
-  /// Builds the three settings cards.
+  /// Builds the four settings cards.
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.voiceController,
+      listenable: Listenable.merge([
+        widget.voiceController,
+        widget.wakeController,
+      ]),
       builder: (context, child) => AppScaffold(
         title: settingsTitle,
         body: ResponsiveBody(
@@ -61,6 +73,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildLanguageCard(),
                 const SizedBox(height: AppSpacing.large),
                 _buildTeachingCard(),
+                const SizedBox(height: AppSpacing.large),
+                WakeWordCard(controller: widget.wakeController),
               ],
             ),
           ),

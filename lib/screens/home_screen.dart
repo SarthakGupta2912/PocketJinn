@@ -10,6 +10,7 @@ import '../core/app_theme.dart';
 import '../core/constants.dart';
 import '../controllers/assistant_controller.dart';
 import '../controllers/voice_controller.dart';
+import '../controllers/wake_word_controller.dart';
 import '../models/contact_candidate.dart';
 import '../services/debug_command_service.dart';
 import '../screens/settings_screen.dart';
@@ -37,28 +38,35 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final AssistantController _controller;
   late final VoiceController _voiceController;
+  late final WakeWordController _wakeController;
   late final DebugCommandService _debugService;
 
   @override
   void initState() {
     super.initState();
     _controller = AssistantController(confirmRiskyAction: _confirmRiskyAction);
+    _wakeController = WakeWordController(onWake: _startVoiceFromWake);
     _voiceController = VoiceController(
       onTranscript: _handleTranscript,
       canRunCommands: () => _controller.status == AssistantStatus.ready,
+      beforeListening: _wakeController.pause,
+      afterListening: _wakeController.resume,
     );
     _debugService = DebugCommandService(
       onAudioFile: _voiceController.runDebugAudioFile,
       onText: _controller.ask,
       onName: _voiceController.checkName,
+      onWakeFile: _wakeController.feedDebugWakeFile,
     );
     _debugService.start();
     unawaited(_controller.restoreBrain());
+    unawaited(_wakeController.initialize());
   }
 
   @override
   void dispose() {
     _debugService.stop();
+    _wakeController.dispose();
     _voiceController.dispose();
     _controller.dispose();
     super.dispose();
@@ -132,11 +140,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Starts a command when the wake word is heard, closing Settings first.
+  Future<bool> _startVoiceFromWake() async {
+    if (!mounted) return false;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    return _voiceController.startFromWake();
+  }
+
   /// Opens the Stage 3B speech settings screen.
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => SettingsScreen(voiceController: _voiceController),
+        builder: (context) => SettingsScreen(
+          voiceController: _voiceController,
+          wakeController: _wakeController,
+        ),
       ),
     );
   }
