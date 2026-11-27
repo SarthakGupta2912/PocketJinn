@@ -1,0 +1,53 @@
+Pocket Jinn wake-word model
+===========================
+
+These five files are the verified files from the official sherpa-onnx release
+archive:
+
+  https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/
+  sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2
+
+The encoder comes from that full release archive. The encoder in the separate
+"-mobile" archive is smaller but fails on the first decode with a Reshape
+shape error in sherpa-onnx 2.0.3, so the full int8 encoder is bundled here.
+
+Model: sherpa-onnx-kws-zipformer-gigaspeech-3.3M
+Licence: Apache-2.0
+Authors: the k2-fsa / sherpa-onnx authors
+
+File sizes and SHA-256 checksums of the files in this folder:
+
+  encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx
+    4,807,159 bytes
+    1e721676515bcd42a186979733981213c66c80db680e1cc582dfedf3be76e678
+
+  decoder-epoch-12-avg-2-chunk-16-left-64.onnx
+    1,063,189 bytes
+    f61ebd3eed3773a44d088d53dfae92dbb6aec4839f4dcaee2d402414741663a3
+
+  joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx
+    163,380 bytes
+    eae9da0c7e1e6c6a3f4cc42d167899c388f6c6701b94cb96320e4f55df79624c
+
+  tokens.txt
+    5,006 bytes
+    fd2ded4050a55d2b1578870ba8697d02371980217806b7558bd0a5cc60f3ba53
+
+  bpe.model
+    244,837 bytes
+    c8a2a0129c4ab8e463164c142f82d25649661b122c8cd0b7aab5c9e80b90ad24
+
+The keyword tokens for "HEY JINN" were produced with the official sherpa-onnx
+text2token tool using this same bpe.model:
+
+  sherpa-onnx-cli text2token \
+    --tokens tokens.txt \
+    --tokens-type bpe \
+    --bpe-model bpe.model \
+    keywords_raw.txt keywords.txt
+
+Result:
+
+  ▁HE Y ▁ J IN N
+
+The app writes that line to keywords.txt beside the copied model files.
