@@ -42,3 +42,8 @@ shots/*
 vosk-model*/
 assets/models/*
 !assets/models/.gitkeep
+
+# Never commit real contacts or recordings (the repo is public)
+contacts/
+recordings/
+*.wav
