@@ -19,6 +19,7 @@ import '../widgets/app_text.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/section_title.dart';
 import '../widgets/wake_word_card.dart';
+import 'onboarding_screen.dart';
 
 /// Settings for Stage 3B speech recognition and name learning.
 class SettingsScreen extends StatefulWidget {
@@ -75,6 +76,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildTeachingCard(),
                 const SizedBox(height: AppSpacing.large),
                 WakeWordCard(controller: widget.wakeController),
+                const SizedBox(height: AppSpacing.large),
+                _buildAlwaysOnCard(),
               ],
             ),
           ),
@@ -167,6 +170,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Shows the button that opens the always-on help screen.
+  Widget _buildAlwaysOnCard() {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(title: settingsAlwaysOnTitle),
+          const SizedBox(height: AppSpacing.small),
+          const AppText(
+            settingsAlwaysOnNote,
+            role: AppTextRole.caption,
+            useMutedColor: true,
+          ),
+          const SizedBox(height: AppSpacing.medium),
+          AppButton(
+            label: settingsAlwaysOnButton,
+            isSecondary: true,
+            onPressed: _openAlwaysOnHelp,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Opens the always-on help screen.
+  void _openAlwaysOnHelp() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (context) => const OnboardingScreen()),
     );
   }
 

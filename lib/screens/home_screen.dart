@@ -13,6 +13,8 @@ import '../controllers/voice_controller.dart';
 import '../controllers/wake_word_controller.dart';
 import '../models/contact_candidate.dart';
 import '../services/debug_command_service.dart';
+import '../services/wake_settings_store.dart';
+import '../screens/onboarding_screen.dart';
 import '../screens/settings_screen.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/app_icon_button.dart';
@@ -61,6 +63,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _debugService.start();
     unawaited(_controller.restoreBrain());
     unawaited(_wakeController.initialize());
+    unawaited(_maybeShowOnboarding());
+  }
+
+  /// Shows the always-on help once, on the first launch.
+  Future<void> _maybeShowOnboarding() async {
+    final store = WakeSettingsStore();
+    if (await store.isOnboardingDone()) return;
+    await store.setOnboardingDone();
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (context) => const OnboardingScreen()),
+    );
   }
 
   @override

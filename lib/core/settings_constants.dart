@@ -32,3 +32,14 @@ const String settingsCheckButton = 'Check availability';
 /// Message shown when Android offline speech is unavailable.
 const String settingsAndroidUnavailable =
     'Android offline speech data is not installed on this device.';
+
+/// Title of the always-on help card.
+const String settingsAlwaysOnTitle = 'Keep listening';
+
+/// Explanation shown on the always-on help card.
+const String settingsAlwaysOnNote =
+    'Android may stop the listener after a swipe-away, a restart or battery '
+    'saving. Open this help to allow background running.';
+
+/// Button that opens the always-on help screen.
+const String settingsAlwaysOnButton = 'Open always-on help';
