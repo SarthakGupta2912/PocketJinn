@@ -24,4 +24,29 @@ class AndroidToolService {
     });
     return reply ?? smsHandedOffMessage;
   }
+
+  /// Reads the device battery percent and charging state.
+  Future<Map<String, dynamic>> getBatteryLevel() async {
+    final reply = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+      'batteryLevel',
+    );
+    if (reply == null) {
+      throw const FormatException('Battery state is unavailable.');
+    }
+    return Map<String, dynamic>.from(reply);
+  }
+
+  /// Opens the system clock's add-alarm page with validated values.
+  Future<String> setAlarm({
+    required int hour,
+    required int minute,
+    required String label,
+  }) async {
+    final reply = await _channel.invokeMethod<String>('setAlarm', {
+      'hour': hour,
+      'minute': minute,
+      'label': label,
+    });
+    return reply ?? 'Opening the clock.';
+  }
 }

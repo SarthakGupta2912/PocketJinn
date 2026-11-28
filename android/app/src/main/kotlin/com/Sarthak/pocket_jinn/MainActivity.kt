@@ -173,6 +173,30 @@ class MainActivity : FlutterActivity() {
                 result.success(latin)
             }
 
+            "batteryLevel" -> {
+                val battery = DeviceTools.batteryLevel(this)
+                if (battery == null) {
+                    result.error("NO_BATTERY", "Battery state is unavailable.", null)
+                } else {
+                    result.success(battery)
+                }
+            }
+
+            "setAlarm" -> {
+                val hour = call.argument<Int>("hour") ?: -1
+                val minute = call.argument<Int>("minute") ?: -1
+                val label = call.argument<String>("label").orEmpty()
+                if (hour !in 0..23 || minute !in 0..59) {
+                    result.error("BAD_TIME", "Use an hour from 0 to 23 and a minute from 0 to 59.", null)
+                } else {
+                    try {
+                        result.success(DeviceTools.setAlarm(this, hour, minute, label))
+                    } catch (error: Exception) {
+                        result.error("ALARM_FAILED", error.message ?: "No clock app.", null)
+                    }
+                }
+            }
+
             else -> result.notImplemented()
         }
     }
