@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -22,8 +23,12 @@ class AndroidSpeechBridge(
     private val channel: MethodChannel,
     private val debugChannel: MethodChannel,
 ) {
+    companion object {
+        /// Kept at app level so debug audio still works after a swipe-away.
+        private var debugReceiver: BroadcastReceiver? = null
+    }
+
     private var recognizer: SpeechRecognizer? = null
-    private var debugReceiver: BroadcastReceiver? = null
 
     /// True when the device has a speech recognition service.
     fun isAvailable(): Boolean = SpeechRecognizer.isRecognitionAvailable(activity)
@@ -51,7 +56,21 @@ class AndroidSpeechBridge(
     }
 
     /// Registers the DEBUG_COMMAND broadcast used by adb tests.
+    ///
+    /// It is app-scoped and debug-only, so a test can still feed audio after
+    /// the activity has been swiped away.
     fun registerDebugReceiver() {
+        val debuggable =
+            (activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!debuggable) return
+        val context = activity.applicationContext
+        debugReceiver?.let { old ->
+            try {
+                context.unregisterReceiver(old)
+            } catch (error: Exception) {
+                // The old receiver was already removed with the process.
+            }
+        }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val text = intent.getStringExtra("text")
@@ -86,7 +105,7 @@ class AndroidSpeechBridge(
         }
         val filter = IntentFilter("${activity.packageName}.DEBUG_COMMAND")
         ContextCompat.registerReceiver(
-            activity,
+            context,
             receiver,
             filter,
             ContextCompat.RECEIVER_EXPORTED,
@@ -111,13 +130,12 @@ class AndroidSpeechBridge(
         }
     }
 
-    /// Releases the recognizer and the debug receiver.
+    /// Releases the recognizer. The app-scoped debug receiver stays alive so
+    /// background tests still work after the activity is destroyed.
     fun dispose() {
         stop()
         recognizer?.destroy()
         recognizer = null
-        debugReceiver?.let { activity.unregisterReceiver(it) }
-        debugReceiver = null
     }
 
     /// Builds the callback that sends recognition events back to Dart.
