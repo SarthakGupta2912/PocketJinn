@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../core/constants.dart';
+import '../models/tool_call.dart';
 
 /// Connects the debug broadcast to the app for device testing.
 class DebugCommandService {
@@ -14,6 +15,7 @@ class DebugCommandService {
     required this.onText,
     required this.onName,
     this.onWakeFile,
+    this.onToolCall,
   });
 
   /// Called with a WAV path pushed to the device.
@@ -27,6 +29,9 @@ class DebugCommandService {
 
   /// Called with a name to check in the contact matcher.
   final Future<void> Function(String name) onName;
+
+  /// Called with a tool call JSON string for safety tests.
+  final Future<void> Function(ToolCall call)? onToolCall;
 
   static const MethodChannel _channel = MethodChannel(debugCallbackChannelName);
 
@@ -57,6 +62,12 @@ class DebugCommandService {
     if (call.method == 'onDebugCommand') {
       final text = arguments?['text'] as String?;
       if (text != null && text.isNotEmpty) await onText(text);
+      return;
+    }
+    if (call.method == 'onDebugToolCall') {
+      final raw = arguments?['call'] as String?;
+      final parsed = raw == null ? null : ToolCall.tryParse(raw);
+      if (parsed != null) await onToolCall?.call(parsed);
       return;
     }
     if (call.method == 'onDebugName') {

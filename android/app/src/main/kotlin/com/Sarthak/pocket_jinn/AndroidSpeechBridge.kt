@@ -78,7 +78,13 @@ class AndroidSpeechBridge(
                 val name = intent.getStringExtra("name")
                 val playPath = intent.getStringExtra("play_path")
                 val wakePath = intent.getStringExtra("wake_path")
+                val toolCall = intent.getStringExtra("tool_call")
                 when {
+                    !toolCall.isNullOrBlank() ->
+                        debugChannel.invokeMethod(
+                            "onDebugToolCall",
+                            mapOf("call" to toolCall),
+                        )
                     !wakePath.isNullOrBlank() ->
                         debugChannel.invokeMethod(
                             "onDebugWakeFile",

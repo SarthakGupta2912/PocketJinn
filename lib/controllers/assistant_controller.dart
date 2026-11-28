@@ -137,6 +137,13 @@ class AssistantController extends ChangeNotifier {
     if (!_isDisposed) notifyListeners();
   }
 
+  /// Runs one tool call directly for adb safety tests, in debug builds only.
+  Future<void> runDebugToolCall(ToolCall call) async {
+    if (!kDebugMode) return;
+    final result = await _registry.execute(call);
+    if (kDebugMode) debugPrint('Debug tool ${call.tool}: $result');
+  }
+
   /// Confirms and executes one model-requested action.
   Future<Map<String, dynamic>> _runToolCall(ToolCall call) async {
     if (kDebugMode) debugPrint('Tool call: ${call.tool} ${call.arguments}');

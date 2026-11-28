@@ -65,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onText: _controller.ask,
       onName: _voiceController.checkName,
       onWakeFile: _wakeController.feedDebugWakeFile,
+      onToolCall: _controller.runDebugToolCall,
     );
     _debugService.start();
     unawaited(_controller.restoreBrain());

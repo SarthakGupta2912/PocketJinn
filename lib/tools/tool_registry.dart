@@ -5,6 +5,7 @@ import 'dart:io';
 
 import '../models/tool_call.dart';
 import '../services/android_tool_service.dart';
+import '../services/tool_safety_guard.dart';
 import 'base_tool.dart';
 import 'battery_level_tool.dart';
 import 'calculator_tool.dart';
@@ -56,8 +57,12 @@ class ToolRegistry {
     return null;
   }
 
-  /// Executes a call or returns a safe unknown-tool error.
+  /// Executes a call, after applying the hard safety guard.
   Future<Map<String, dynamic>> execute(ToolCall call) async {
+    final refusal = const ToolSafetyGuard().refusalFor(call);
+    if (refusal != null) {
+      return {'status': 'blocked', 'error': refusal};
+    }
     final tool = find(call.tool);
     if (tool == null) return {'status': 'error', 'error': 'Unknown tool.'};
     return tool.run(call.arguments);
