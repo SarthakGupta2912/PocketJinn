@@ -4,6 +4,7 @@
 package com.Sarthak.pocket_jinn
 
 import android.Manifest
+import android.content.Context
 import android.os.Build
 import android.icu.text.Transliterator
 import android.content.Intent
@@ -20,7 +21,6 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL_NAME = "com.Sarthak.pocket_jinn/android_tools"
         private const val DEBUG_CHANNEL_NAME =
             "com.Sarthak.pocket_jinn/debug_callbacks"
-        private const val WAKE_CHANNEL_NAME = "com.Sarthak.pocket_jinn/wake_word"
         private const val TEST_CONTACT_NAME = "sarthak"
         private const val TEST_CONTACT_NUMBER = "9023850632"
         private const val CALL_PERMISSION_REQUEST = 4101
@@ -32,9 +32,11 @@ class MainActivity : FlutterActivity() {
     private var pendingAction: (() -> Unit)? = null
     private var pendingNotificationResult: MethodChannel.Result? = null
     private var speechBridge: AndroidSpeechBridge? = null
-    private var wakeChannel: MethodChannel? = null
-    private var isVisible = false
-    private var pendingWake = false
+
+    /// Returns the one engine shared with the background service.
+    override fun provideFlutterEngine(context: Context): FlutterEngine {
+        return PocketJinnEngine.get(context)
+    }
 
     /// Registers the small channel used by the Stage 2 call and SMS tools.
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -51,13 +53,7 @@ class MainActivity : FlutterActivity() {
         channel.setMethodCallHandler { call, result ->
             handleMethodCall(call, result)
         }
-        wakeChannel = MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            WAKE_CHANNEL_NAME,
-        )
-        wakeChannel?.setMethodCallHandler { call, result ->
-            handleWakeCall(call, result)
-        }
+        WakeBridge.attach(flutterEngine, this)
         speechBridge?.registerDebugReceiver()
         requestTestAudioPermission()
     }
@@ -77,13 +73,13 @@ class MainActivity : FlutterActivity() {
     /// Remembers when the app is on screen and reads a wake notification tap.
     override fun onResume() {
         super.onResume()
-        isVisible = true
+        WakeBridge.isVisible = true
         consumeWakeExtra(intent)
     }
 
     /// Marks the app hidden so the wake alert can be shown instead.
     override fun onPause() {
-        isVisible = false
+        WakeBridge.isVisible = false
         super.onPause()
     }
 
@@ -97,7 +93,7 @@ class MainActivity : FlutterActivity() {
     /// Turns the wake extra into a pending wake and clears it from the intent.
     private fun consumeWakeExtra(intent: Intent?) {
         if (intent?.getBooleanExtra(WakeWordService.WAKE_EXTRA, false) == true) {
-            pendingWake = true
+            WakeBridge.pendingWake = true
             intent.removeExtra(WakeWordService.WAKE_EXTRA)
         }
     }
@@ -106,66 +102,12 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         speechBridge?.dispose()
         speechBridge = null
-        wakeChannel?.setMethodCallHandler(null)
-        wakeChannel = null
+        WakeBridge.detachActivity(this)
         super.onDestroy()
     }
 
-    /// Chooses the action for one wake-word method call.
-    private fun handleWakeCall(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "startService" -> {
-                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    result.error(
-                        "NO_MIC",
-                        "Microphone permission is needed for the wake word.",
-                        null,
-                    )
-                    return
-                }
-                try {
-                    WakeWordService.start(this)
-                    result.success(true)
-                } catch (error: Exception) {
-                    result.error(
-                        "SERVICE_FAILED",
-                        error.message ?: "The wake word service could not start.",
-                        null,
-                    )
-                }
-            }
-
-            "stopService" -> {
-                WakeWordService.stop(this)
-                result.success(true)
-            }
-
-            "notifyWake" -> {
-                if (isVisible) {
-                    result.success("foreground")
-                } else {
-                    WakeWordService.showWakeNotification(this)
-                    result.success("background")
-                }
-            }
-
-            "takePendingWake" -> {
-                val wasPending = pendingWake
-                pendingWake = false
-                result.success(wasPending)
-            }
-
-            "requestNotificationPermission" ->
-                requestNotificationPermission(result)
-
-            else -> result.notImplemented()
-        }
-    }
-
     /// Asks for notification access on Android 13 and newer.
-    private fun requestNotificationPermission(result: MethodChannel.Result) {
+    fun requestNotificationPermission(result: MethodChannel.Result) {
         if (Build.VERSION.SDK_INT < 33 ||
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
