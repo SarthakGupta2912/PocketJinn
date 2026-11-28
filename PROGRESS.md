@@ -24,10 +24,11 @@ The current application id is `com.Sarthak.pocket_jinn`.
 | 2 | Real Android tools through Kotlin | Done, tests passed |
 | 3 | Offline push-to-talk voice input | Implemented, device tested; wake word moved to Stage 4 |
 | 3B | Multilingual speech engines and Indian name matching | Implemented, file/name tests done; user voice tests pending |
-| 4 | Background listening service | Not started |
+| 4 | Background listening service | Done, device tested |
 | 5 | Accessibility actions in other apps | Not started |
 | 6 | History, speech output and polish | Not started |
 | 7 | Optional smart fallback agent | Not started |
+| 8 | Always-on assistant and broad tool abilities | Parts 1–3 implemented, device tested; screen-off/reboot checks pending |
 
 ## What exists now
 
@@ -159,8 +160,27 @@ The current application id is `com.Sarthak.pocket_jinn`.
   handoff, pause/resume, notification and switch-off on the real tablet. Full
   results are in `TEST_REPORT_STAGE_4.md`.
 
+## Done in stage 8
+
+- Part 1: made name matching script-independent and testable with fake
+  contacts; measured TOP-1 and TOP-3 accuracy of 24/24 on the 24 spoken forms.
+- Part 2: moved the wake detector onto one shared Flutter engine so it survives
+  an activity swipe-away; added a context-only wake bridge, sticky foreground
+  service, wake lock, heartbeat, status line, watchdog, boot reminder and
+  onboarding deep links. Verified swipe-away survival, background wake, alert
+  tap, battery exemption and notification access on the real tablet.
+- Part 3: added Tier 1 safe tools (current time, battery, calculator, alarm,
+  global stop), Tier 2 confirmed tools (temporary file cleanup, wake switch
+  off) and a Tier 3 hard safety guard that blocks payments, banking, passwords
+  and instructions hidden in text from another app. Each tool has a unit test
+  and a debug-broadcast device test. Full results are in
+  `TEST_REPORT_STAGE_8.md`.
+
 ## Next
 
+- Ask the owner to unlock the tablet (or temporarily set Screen lock to None)
+  and finish the screen-off listening, real reboot and silent-stop reminder
+  rows in `TEST_REPORT_STAGE_8.md`.
 - Ask the user for the Indian contact list plus their own Hindi/English WAV
   files. Complete the NOT VERIFIED rows in `TEST_REPORT_STAGE_3B.md`.
 - Ask the user to say "Hey Jinn" aloud near the tablet to verify the live
