@@ -7,12 +7,15 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
+import 'name_matcher.dart';
+
 /// Reads and writes extra spoken names for each contact.
-class NameAliasStore {
+class NameAliasStore implements NameAliasSource {
   Map<String, List<String>> _aliases = <String, List<String>>{};
   bool _isLoaded = false;
 
   /// Returns all names taught for one contact.
+  @override
   Future<List<String>> aliasesFor(String contactName) async {
     await _load();
     return List<String>.from(_aliases[contactName.toLowerCase()] ?? <String>[]);
