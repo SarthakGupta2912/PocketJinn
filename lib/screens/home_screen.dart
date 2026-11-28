@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../core/app_theme.dart';
 import '../core/constants.dart';
@@ -49,6 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _controller = AssistantController(
       confirmRiskyAction: _confirmRiskyAction,
       stopVoice: _stopVoice,
+      stopWake: () => _wakeController.stop(),
+      tempDirectory: getApplicationSupportDirectory,
     );
     _wakeController = WakeWordController(onWake: _startVoiceFromWake);
     _voiceController = VoiceController(

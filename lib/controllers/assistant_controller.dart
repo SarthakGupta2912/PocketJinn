@@ -2,6 +2,8 @@
 // Holds the simple assistant state and connects the screen to the local model
 // and the local tools, including the call and SMS actions.
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/contact_candidate.dart';
@@ -29,11 +31,15 @@ class AssistantController extends ChangeNotifier {
   AssistantController({
     required this.confirmRiskyAction,
     Future<void> Function()? stopVoice,
+    Future<void> Function()? stopWake,
+    Future<Directory> Function()? tempDirectory,
   }) {
     _registry = ToolRegistry(
       clearCommands: _clearCommands,
       androidTools: const AndroidToolService(),
       stopVoice: stopVoice,
+      stopWake: stopWake,
+      tempDirectory: tempDirectory,
     );
     _llmService = LlmService(tools: _registry.tools);
   }
