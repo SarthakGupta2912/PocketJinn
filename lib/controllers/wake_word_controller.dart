@@ -36,7 +36,9 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
   AudioRecorder? _recorder;
   StreamSubscription<Uint8List>? _audioSubscription;
   Timer? _resumeTimer;
+  Timer? _heartbeatTimer;
   DateTime? _lastWakeAt;
+  DateTime? _listeningSince;
   WakeStatus status = WakeStatus.off;
   String message = wakeOffMessage;
   bool _isInitialized = false;
@@ -56,6 +58,20 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// True while the model is being prepared, so the switch is disabled.
   bool get isBusy => status == WakeStatus.preparing;
+
+  /// A short honest line such as "Listening: yes, since 10:32".
+  String get statusLine {
+    if (!_isEnabled || status == WakeStatus.off || status == WakeStatus.error) {
+      return wakeStatusStopped;
+    }
+    if (status == WakeStatus.preparing) return wakeStatusStarting;
+    if (status == WakeStatus.paused) return wakeStatusPaused;
+    final since = _listeningSince;
+    if (since == null) return wakeStatusListening;
+    final hour = since.hour.toString().padLeft(2, '0');
+    final minute = since.minute.toString().padLeft(2, '0');
+    return '$wakeStatusListening, $wakeStatusSince $hour:$minute';
+  }
 
   /// Reads the saved switch, registers for app life, and starts if needed.
   Future<void> initialize() async {
@@ -96,6 +112,7 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
     _isEnabled = false;
     _isPaused = false;
     await _settingsStore.setEnabled(false);
+    await _setNativeEnabled(false);
     await _stopRunning();
     status = WakeStatus.off;
     message = wakeOffMessage;
@@ -141,6 +158,8 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
       await _startMicrophone();
       status = WakeStatus.listening;
       message = wakeListeningMessage;
+      _listeningSince ??= DateTime.now();
+      _startHeartbeat();
     } on Object catch (error) {
       status = WakeStatus.error;
       message = wakeServiceMessage;
@@ -155,6 +174,7 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
     _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _resumeTimer?.cancel();
+    _stopHeartbeat();
     unawaited(_stopRunning());
     if (_isInboxReady) {
       _inbox.close();
@@ -195,6 +215,7 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
       }
       await _startWorker();
       _isRunning = true;
+      await _setNativeEnabled(true);
       if (!_isEnabled) {
         await _stopRunning();
         return;
@@ -211,15 +232,19 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
       }
       status = WakeStatus.listening;
       message = wakeListeningMessage;
+      _listeningSince = DateTime.now();
+      _startHeartbeat();
       if (save) await _settingsStore.setEnabled(true);
     } on WakeWordFailure catch (error) {
       _isEnabled = false;
+      await _setNativeEnabled(false);
       await _stopRunning();
       status = WakeStatus.error;
       message = error.message;
       if (save) await _settingsStore.setEnabled(false);
     } on Object catch (error) {
       _isEnabled = false;
+      await _setNativeEnabled(false);
       await _stopRunning();
       status = WakeStatus.error;
       message = wakeModelMessage;
@@ -235,6 +260,8 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _stopRunning() async {
     _resumeTimer?.cancel();
     _resumeTimer = null;
+    _stopHeartbeat();
+    _listeningSince = null;
     await _stopMicrophone();
     _workerPort?.send({'type': wakeStopMessage});
     await _stopWorker();
@@ -455,11 +482,46 @@ class WakeWordController extends ChangeNotifier with WidgetsBindingObserver {
   /// Turns the detector off after the worker fails while running.
   Future<void> _handleWorkerFailure() async {
     _isEnabled = false;
+    await _setNativeEnabled(false);
     await _stopRunning();
     status = WakeStatus.error;
     message = wakeModelMessage;
     await _settingsStore.setEnabled(false);
     _notify();
+  }
+
+  /// Saves the switch in the Android service so the watchdog can read it.
+  Future<void> _setNativeEnabled(bool enabled) async {
+    try {
+      await _channel.invokeMethod<void>('setWakeEnabled', {'enabled': enabled});
+    } on Object {
+      // The native side may not be ready during a unit test.
+    }
+  }
+
+  /// Tells the Android service every few seconds that the detector is alive.
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    unawaited(_sendHeartbeat());
+    _heartbeatTimer = Timer.periodic(
+      wakeHeartbeatInterval,
+      (_) => unawaited(_sendHeartbeat()),
+    );
+  }
+
+  /// Sends one heartbeat, ignoring a missing native channel.
+  Future<void> _sendHeartbeat() async {
+    try {
+      await _channel.invokeMethod<void>('heartbeat');
+    } on Object {
+      // The service may already be stopped.
+    }
+  }
+
+  /// Stops the heartbeat timer.
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
   }
 
   /// Remembers whether the app is on screen and checks for a pending wake.

@@ -103,3 +103,98 @@ const String wakeNotificationMessage =
 /// Shown after a background detection while the user taps the notification.
 const String wakeBackgroundMessage =
     'Heard "Hey Jinn". Tap the notification to speak.';
+
+/// How often the detector tells the Android service it is still alive.
+const Duration wakeHeartbeatInterval = Duration(seconds: 10);
+
+/// Start of the status line while the detector is running.
+const String wakeStatusListening = 'Listening: yes';
+
+/// Status line while the detector is off.
+const String wakeStatusStopped = 'Listening: no';
+
+/// Status line while the model files are loading.
+const String wakeStatusStarting = 'Listening: starting';
+
+/// Status line while a voice command owns the microphone.
+const String wakeStatusPaused = 'Listening: paused';
+
+/// Joins the "yes" status with the start time.
+const String wakeStatusSince = 'since';
+
+/// Title of the always-on help screen.
+const String onboardingTitle = 'Keep Pocket Jinn listening';
+
+/// Short explanation at the top of the help screen.
+const String onboardingIntro =
+    'Pocket Jinn listens for "Hey Jinn" with an offline model behind a small '
+    'microphone notification. Android can still stop it to save battery. These '
+    'steps help it stay on.';
+
+/// Heading for the notification step.
+const String onboardingNotificationsTitle = '1. Allow notifications';
+
+/// Explanation for the notification step.
+const String onboardingNotificationsNote =
+    'Android needs notifications for the microphone indicator and for telling '
+    'you when "Hey Jinn" was heard.';
+
+/// Heading for the battery step.
+const String onboardingBatteryTitle = '2. Allow background running';
+
+/// Explanation for the battery step.
+const String onboardingBatteryNote =
+    'Turn off battery optimisation for Pocket Jinn so Android does not stop the '
+    'listener while the screen is off.';
+
+/// Heading for the auto-start step.
+const String onboardingAutoStartTitle = '3. Allow auto-start';
+
+/// Explanation for the auto-start step.
+const String onboardingAutoStartNote =
+    'Some phones stop apps after a restart. Open your phone maker\'s auto-start '
+    'page and allow Pocket Jinn.';
+
+/// Honest note about what Android does not allow.
+const String onboardingHonestNote =
+    'Android does not allow a microphone service to start by itself at boot or '
+    'from the background. After a restart or a swipe-away, Pocket Jinn shows a '
+    'reminder; tap it to start listening again.';
+
+/// Button that closes the help screen.
+const String onboardingDoneButton = 'Done';
+
+/// Button that opens the battery settings page.
+const String onboardingOpenBatteryButton = 'Open battery settings';
+
+/// Button that opens the manufacturer auto-start page.
+const String onboardingOpenAutoStartButton = 'Open auto-start settings';
+
+/// Button that opens this app's information page.
+const String onboardingOpenAppInfoButton = 'Open app info';
+
+/// Button that asks for notification access.
+const String onboardingAllowNotificationsButton = 'Allow notifications';
+
+/// Shown when battery optimisation is already off.
+const String onboardingBatteryAlreadyAllowed =
+    'Battery optimisation is already off for Pocket Jinn.';
+
+/// Shown when battery optimisation is still on.
+const String onboardingBatteryStillOn =
+    'Battery optimisation is still on. Open the settings and choose '
+    '"Don\'t optimise".';
+
+/// Shown after a settings page opens.
+const String onboardingActionOpened = 'Settings opened.';
+
+/// Shown when a settings page cannot open.
+const String onboardingActionFailed =
+    'This phone did not open that page. Use app info instead.';
+
+/// Shown after notifications are allowed.
+const String onboardingNotificationAllowed = 'Notifications are allowed.';
+
+/// Shown when notifications are still blocked.
+const String onboardingNotificationBlocked =
+    'Notifications are still blocked. Allow them in app info.';

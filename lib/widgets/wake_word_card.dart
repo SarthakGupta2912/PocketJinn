@@ -43,6 +43,8 @@ class WakeWordCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.extraSmall),
+          AppText(controller.statusLine, role: AppTextRole.body),
+          const SizedBox(height: AppSpacing.extraSmall),
           AppText(
             controller.message,
             role: AppTextRole.caption,
