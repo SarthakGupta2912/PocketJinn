@@ -5,6 +5,8 @@ import 'base_tool.dart';
 
 /// Returns the current local time without network access.
 class CurrentTimeTool extends BaseTool {
+  const CurrentTimeTool();
+
   @override
   String get name => 'get_current_time';
 

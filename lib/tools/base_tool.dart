@@ -3,6 +3,8 @@
 
 /// Describes and runs one assistant action.
 abstract class BaseTool {
+  const BaseTool();
+
   /// The stable name the model uses.
   String get name;
 

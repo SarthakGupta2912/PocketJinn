@@ -26,10 +26,14 @@ class AssistantHistoryItem {
 
 /// Coordinates model preparation, safe tool execution and screen updates.
 class AssistantController extends ChangeNotifier {
-  AssistantController({required this.confirmRiskyAction}) {
+  AssistantController({
+    required this.confirmRiskyAction,
+    Future<void> Function()? stopVoice,
+  }) {
     _registry = ToolRegistry(
       clearCommands: _clearCommands,
       androidTools: const AndroidToolService(),
+      stopVoice: stopVoice,
     );
     _llmService = LlmService(tools: _registry.tools);
   }
@@ -129,6 +133,7 @@ class AssistantController extends ChangeNotifier {
 
   /// Confirms and executes one model-requested action.
   Future<Map<String, dynamic>> _runToolCall(ToolCall call) async {
+    if (kDebugMode) debugPrint('Tool call: ${call.tool} ${call.arguments}');
     final tool = _registry.find(call.tool);
     if (tool == null) {
       return const {'status': 'error', 'error': 'Unknown tool.'};
@@ -140,7 +145,9 @@ class AssistantController extends ChangeNotifier {
         )) {
       return const {'status': 'cancelled', 'message': 'The user declined.'};
     }
-    return _registry.execute(call);
+    final result = await _registry.execute(call);
+    if (kDebugMode) debugPrint('Tool ${call.tool}: $result');
+    return result;
   }
 
   /// Asks the user before acting on a weak or close name match.

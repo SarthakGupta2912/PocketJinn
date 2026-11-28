@@ -46,7 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = AssistantController(confirmRiskyAction: _confirmRiskyAction);
+    _controller = AssistantController(
+      confirmRiskyAction: _confirmRiskyAction,
+      stopVoice: _stopVoice,
+    );
     _wakeController = WakeWordController(onWake: _startVoiceFromWake);
     _voiceController = VoiceController(
       onTranscript: _handleTranscript,
@@ -152,6 +155,13 @@ class _HomeScreenState extends State<HomeScreen> {
       candidates: guesses,
       confirmNames: _voiceController.isNameMatchUncertain(guesses),
     );
+  }
+
+  /// Stops microphone capture when the microphone is currently listening.
+  Future<void> _stopVoice() async {
+    if (_voiceController.isListening) {
+      await _voiceController.toggleMicrophone();
+    }
   }
 
   /// Starts a command when the wake word is heard, closing Settings first.
