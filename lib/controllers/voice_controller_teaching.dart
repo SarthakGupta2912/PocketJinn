@@ -14,6 +14,7 @@ extension VoiceControllerTeaching on VoiceController {
         )
         .join(', ');
     message = 'Name check "$name" -> $text';
+    if (kDebugMode) debugPrint('Name check "$name" -> $text');
     _notify();
   }
 
@@ -28,6 +29,7 @@ extension VoiceControllerTeaching on VoiceController {
       transcript = text;
       candidates = await _matcher.match(text);
       message = 'Test transcript: $text';
+      if (kDebugMode) debugPrint('Test transcript: $text');
       status = VoiceStatus.idle;
       _notify();
       if (canRunCommands() && text.isNotEmpty) {
